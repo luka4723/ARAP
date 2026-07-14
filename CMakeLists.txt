@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(ARAP)
+
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+add_subdirectory(external/libigl)
+
+add_executable(ARAP main.cpp)
+
+igl_include(glfw)
+igl_include(opengl)
+
+target_link_libraries(ARAP PRIVATE igl::core igl::glfw igl::opengl)

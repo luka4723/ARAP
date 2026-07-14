@@ -1,0 +1,35 @@
+# Build folderi
+build/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.user
+
+# Compiled binaries
+*.exe
+*.dll
+*.lib
+*.obj
+*.o
+*.out
+*.pdb
+
+/external
+/res
