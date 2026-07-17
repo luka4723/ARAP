@@ -10,9 +10,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(external/libigl)
 
-add_executable(ARAP main.cpp)
+add_executable(ARAP
+    main.cpp
+    globals.cpp
+    menu.cpp
+    point_manager.cpp
+)
 
 igl_include(glfw)
 igl_include(opengl)
+igl_include(imgui)
 
-target_link_libraries(ARAP PRIVATE igl::core igl::glfw igl::opengl)
+target_link_libraries(ARAP PRIVATE igl::core igl::glfw igl::opengl igl::imgui)

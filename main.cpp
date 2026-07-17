@@ -1,17 +1,20 @@
-#include <igl/readOFF.h>
-#include <igl/opengl/glfw/Viewer.h>
 
-Eigen::MatrixXd V;
-Eigen::MatrixXi F;
+#include "menu.h"
+#include "globals.h"
 
 int main(int argc, char *argv[])
 {
-  // Load a mesh in OFF format
-  igl::readOFF("C:\\faks\\eth\\ARAP\\ARAP\\res\\armadillo_1k.off", V, F);
+  load_mesh();
 
-  // Plot the mesh
   igl::opengl::glfw::Viewer viewer;
-  
+  viewer.data().point_size = 10;
+
+  igl::opengl::glfw::imgui::ImGuiPlugin plugin;
+  viewer.plugins.push_back(&plugin);
+  igl::opengl::glfw::imgui::ImGuiMenu menu;
+  plugin.widgets.push_back(&menu);
+  setup_menu(viewer, menu);
+
   viewer.data().set_mesh(V, F);
   viewer.launch();
 }
