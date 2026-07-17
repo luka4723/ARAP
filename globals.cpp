@@ -8,8 +8,13 @@ Eigen::MatrixXi F;
 std::unordered_set<int> handles;
 std::unordered_set<int> anchors;
 std::unordered_set<int> available;
+std::vector<std::vector<int>> adjacency;
+std::map<std::pair<int,int>, std::vector<double>> angles;
+
+
 void load_mesh(){
     igl::readOFF("C:\\faks\\eth\\ARAP\\ARAP\\res\\armadillo_1k.off", V, F);
+    igl::adjacency_list(F, adjacency);
     available.clear();
     anchors.clear();
     handles.clear();

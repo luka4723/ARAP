@@ -15,6 +15,7 @@ add_executable(ARAP
     globals.cpp
     menu.cpp
     point_manager.cpp
+    cell.cpp
 )
 
 igl_include(glfw)
