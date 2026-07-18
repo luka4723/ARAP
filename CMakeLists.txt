@@ -16,6 +16,7 @@ add_executable(ARAP
     menu.cpp
     point_manager.cpp
     cell.cpp
+    rotation_solver.cpp
 )
 
 igl_include(glfw)
