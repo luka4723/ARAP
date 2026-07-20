@@ -2,7 +2,7 @@
 #include "point_manager.h"
 #include "globals.h"
 #include <GLFW/glfw3.h>
-#include "rotation_solver.h"
+#include "solver.h"
 
 void setup_menu(
     igl::opengl::glfw::Viewer& viewer,
@@ -11,8 +11,7 @@ void setup_menu(
 {
     menu.callback_draw_viewer_menu = [&]()
     {
-        viewer.callback_mouse_down =
-        [&](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
+        viewer.callback_mouse_down = [&](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
         {
             if(button == GLFW_MOUSE_BUTTON_LEFT)
             {
@@ -26,6 +25,12 @@ void setup_menu(
         viewer.callback_mouse_move = [](igl::opengl::glfw::Viewer& viewer, double x, double y)
         {
             return solver_mouse_move(viewer, x, y);
+        };
+        
+        viewer.callback_pre_draw = [](igl::opengl::glfw::Viewer& viewer)
+        {
+            solver_pre_draw(viewer);
+            return false;
         };
         viewer.callback_mouse_up = [](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
         {

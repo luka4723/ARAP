@@ -21,42 +21,42 @@ int point_picker(igl::opengl::glfw::Viewer& viewer)
   Eigen::Vector2f mouse(viewer.current_mouse_x,
                             viewer.core().viewport(3) - viewer.current_mouse_y);
 
-      int fid;
-      Eigen::Vector3d bc;
+  int fid;
+  Eigen::Vector3d bc;
 
-      bool hit = igl::unproject_onto_mesh(mouse,viewer.core().view,viewer.core().proj,
-                                          viewer.core().viewport,V,F,fid,bc);
+  bool hit = igl::unproject_onto_mesh(mouse,viewer.core().view,viewer.core().proj,
+                                      viewer.core().viewport,V,F,fid,bc);
 
-      if(!hit) return -1;
+  if(!hit) return -1;
 
-      Eigen::RowVector3d hit_point =
-          bc(0) * V.row(F(fid,0)) +
-          bc(1) * V.row(F(fid,1)) +
-          bc(2) * V.row(F(fid,2));
+  Eigen::RowVector3d hit_point =
+      bc(0) * V.row(F(fid,0)) +
+      bc(1) * V.row(F(fid,1)) +
+      bc(2) * V.row(F(fid,2));
 
-      int selected = -1;
-      double min_dist_px = 10.0;
+  int selected = -1;
+  double min_dist_px = 10.0;
 
-      for(int i = 0; i < 3; i++)
+  for(int i = 0; i < 3; i++)
+  {
+      int vertex = F(fid,i);
+
+      Eigen::Vector3f proj = igl::project(
+          Eigen::Vector3f(V.row(vertex).cast<float>()),
+          viewer.core().view,
+          viewer.core().proj,
+          viewer.core().viewport
+      );
+
+      double dist_px = (Eigen::Vector2f(proj(0), proj(1)) - mouse).norm();
+
+      if(dist_px < min_dist_px)
       {
-          int vertex = F(fid,i);
-
-          Eigen::Vector3f proj = igl::project(
-              Eigen::Vector3f(V.row(vertex).cast<float>()),
-              viewer.core().view,
-              viewer.core().proj,
-              viewer.core().viewport
-          );
-
-          double dist_px = (Eigen::Vector2f(proj(0), proj(1)) - mouse).norm();
-
-          if(dist_px < min_dist_px)
-          {
-              min_dist_px = dist_px;
-              selected = vertex;
-          }  
-      }
-    return selected;
+          min_dist_px = dist_px;
+          selected = vertex;
+      }  
+  }
+  return selected;
 }
 
 void point_manager(int mode, igl::opengl::glfw::Viewer& viewer, int button, int modifier)
@@ -72,11 +72,13 @@ void point_manager(int mode, igl::opengl::glfw::Viewer& viewer, int button, int 
       if(mode == 1 && is_not_anchor) {
         handles.insert(selected);
         available.erase(selected);
+        build_L();
         draw_vertices(viewer, true, true, true);
       }
       else if(mode==2 && is_not_handle){
         anchors.insert(selected);
         available.erase(selected);
+        build_L();
         draw_vertices(viewer, true, true, true);
       }
     }
