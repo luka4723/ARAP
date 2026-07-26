@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[])
 {
-  load_mesh();
+  if(!load_mesh()) return EXIT_FAILURE;
   precompute_angles();
 
   igl::opengl::glfw::imgui::ImGuiPlugin plugin;
@@ -15,6 +15,6 @@ int main(int argc, char *argv[])
   plugin.widgets.push_back(&menu);
   setup_menu(viewer, menu);
   
-  viewer.data().set_mesh(V, F);
+  viewer.data().set_mesh(V_new, F);
   viewer.launch();
 }

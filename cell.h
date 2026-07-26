@@ -7,14 +7,14 @@
 
 struct Cell {
     int point_idx;
-    std::vector<double> weights;
+    std::vector<int> neighbors;
+    Eigen::VectorXd weights;
     Eigen::Matrix3d rotation;
-    Eigen::MatrixXd P;
-    Eigen::MatrixXd P_prim;
-    Eigen::MatrixXd D;
+    Eigen::MatrixXd weight_edges;
+
 
     Cell(int point_idx);
-    void find_rotation(Eigen::MatrixXd& V_new);
+    void find_rotation(const Eigen::MatrixXd& V_new);
 };
 
 void precompute_angles();

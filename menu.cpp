@@ -9,34 +9,35 @@ void setup_menu(
     igl::opengl::glfw::imgui::ImGuiMenu& menu
 )
 {
+    draw_vertices(viewer,false,true,true);
+    viewer.callback_mouse_down = [&](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
+    {
+        if(button == GLFW_MOUSE_BUTTON_LEFT)
+        {
+            if(mode==0) solver_mouse_down(viewer, button);
+            else point_manager(mode, viewer, button, modifier);
+        }
+        return false;
+    };
+
+    viewer.callback_mouse_move = [](igl::opengl::glfw::Viewer& viewer, double x, double y)
+    {
+        return solver_mouse_move(viewer, x, y);
+    };
+    
+    viewer.callback_pre_draw = [](igl::opengl::glfw::Viewer& viewer)
+    {
+        solver_pre_draw(viewer);
+        return false;
+    };
+    viewer.callback_mouse_up = [](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
+    {
+        solver_mouse_up(viewer, button);
+        return false;
+    };
+
     menu.callback_draw_viewer_menu = [&]()
     {
-        viewer.callback_mouse_down = [&](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
-        {
-            if(button == GLFW_MOUSE_BUTTON_LEFT)
-            {
-                if(mode==0) solver_mouse_down(viewer, button);
-                else point_manager(mode, viewer, button, modifier);
-            }
-
-            return false;
-        };
-
-        viewer.callback_mouse_move = [](igl::opengl::glfw::Viewer& viewer, double x, double y)
-        {
-            return solver_mouse_move(viewer, x, y);
-        };
-        
-        viewer.callback_pre_draw = [](igl::opengl::glfw::Viewer& viewer)
-        {
-            solver_pre_draw(viewer);
-            return false;
-        };
-        viewer.callback_mouse_up = [](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
-        {
-            solver_mouse_up(viewer, button);
-            return false;
-        };
 
         if(ImGui::RadioButton("None", mode == 0))
         {
@@ -71,11 +72,12 @@ void setup_menu(
 
         if(ImGui::Button("Clear All"))
         {
+            for(int n : anchors) std::cout << "ANCHORS: " << n << "\n";
+            for(int n : handles) std::cout << "HANDLES: " << n << "\n";
+
             handles.clear();
             anchors.clear();
-
-            for(int i = 0; i < V.rows(); i++)
-                available.insert(i);
+            vertex_type.resize(V.rows(),0);
 
             mode = 0;
             draw_vertices(viewer,false,false,false);

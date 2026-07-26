@@ -1,62 +1,61 @@
 #include "cell.h"
 #include "globals.h"
 
-Eigen::Matrix3d SVD_to_Rotation(Eigen::MatrixXd A)
-{
- Eigen::JacobiSVD<Eigen::Matrix3d> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    Eigen::Matrix3d U = svd.matrixU();
-    Eigen::Matrix3d V = svd.matrixV();
-
-    Eigen::Matrix3d R = V * U.transpose();
-
-    if (R.determinant() < 0) {
-        Eigen::Matrix3d U_fixed = U;
-        U_fixed.col(2) *= -1;
-        R = V * U_fixed.transpose();
-    }
-    return R;
-}
-
 void populate_cells()
 {
-    auto start = std::chrono::high_resolution_clock::now();
+    //auto start = std::chrono::high_resolution_clock::now();
+    cells.reserve(V.rows());
     for(int i=0;i<V.rows();i++) cells.emplace_back(i);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start; 
+    //auto end = std::chrono::high_resolution_clock::now();
+    //std::chrono::duration<double> elapsed = end - start; 
     //std::cout << "Time: " << elapsed.count() << " seconds\n";
     build_L();
 }
 
 Cell::Cell(int point_idx) : point_idx(point_idx) {
+    int neighbors_size = adjacency[point_idx].size();
+    weight_edges.resize(3, neighbors_size);
+    weights.resize(neighbors_size);
+    neighbors.resize(neighbors_size);
+    int k = 0;
     for(int n : adjacency[point_idx])
     {
+        neighbors[k] = n;
+
         int a = std::min(n,point_idx);
         int b = std::max(n,point_idx);
         double alpha = angles[{a,b}][0];
-        double beta;
+        double beta = 0;
         if(angles[{a,b}].size() == 2 ) beta = angles[{a,b}][1];
-        else beta = 0;
-        weights.push_back((alpha+beta)/2);
-        
-        int n = adjacency[point_idx].size();
-        P.resize(3, n);
-        P_prim.resize(3, n);
-        D.resize(n, n);
-        D.setZero();
+        weights[k] = ((alpha+beta)/2.0); 
+        weight_edges.col(k) = weights[k] * (V.row(point_idx) - V.row(n)).transpose();
+        k++;    
     }
 }
-void Cell::find_rotation(Eigen::MatrixXd& V_new){
-    
-    int n = 0;
-    for(int i: adjacency[point_idx])
+void Cell::find_rotation(const Eigen::MatrixXd& V_new){
+    Eigen::Matrix3d S = Eigen::Matrix3d::Zero();
+    Eigen::Vector3d center_of_cell = V_new.row(point_idx);
+    Eigen::Vector3d e_prim;
+    for(int n = 0; n < weight_edges.cols(); n++)
     {
-        P.col(n) = (V.row(point_idx) - V.row(i)).transpose();
-        P_prim.col(n) = (V_new.row(point_idx) - V_new.row(i)).transpose();;
-        D(n,n) = weights[n];
-        n++;
+        e_prim[0] = center_of_cell(0) - V_new(neighbors[n],0);
+        e_prim[1] = center_of_cell(1) - V_new(neighbors[n],1);
+        e_prim[2] = center_of_cell(2) - V_new(neighbors[n],2);
+
+        S(0,0) += weight_edges(0,n) * e_prim(0);
+        S(0,1) += weight_edges(0,n) * e_prim(1);
+        S(0,2) += weight_edges(0,n) * e_prim(2);
+
+        S(1,0) += weight_edges(1,n) * e_prim(0);
+        S(1,1) += weight_edges(1,n) * e_prim(1);
+        S(1,2) += weight_edges(1,n) * e_prim(2);
+
+        S(2,0) += weight_edges(2,n) * e_prim(0);
+        S(2,1) += weight_edges(2,n) * e_prim(1);
+        S(2,2) += weight_edges(2,n) * e_prim(2);
     }
-    Eigen::MatrixXd S = P * D * P_prim.transpose();
-    rotation = SVD_to_Rotation(S);
+    igl::polar_svd3x3(S, rotation);
+    rotation.transposeInPlace();
 }
 
 double cotangent(int a, int b, int c)

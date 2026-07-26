@@ -10,7 +10,7 @@
 const int NUMBER_OF_ITERATIONS = 5;
 bool is_dragging = false;
 
-Eigen::MatrixXd V_new;
+
 Eigen::Vector3d drag_plane_point;
 Eigen::Vector3d drag_plane_normal;
 Eigen::MatrixXd b;
@@ -21,24 +21,31 @@ void build_b()
 {
     b = Eigen::MatrixXd::Zero(V.rows(), 3);
     for (int i = 0; i < V.rows(); i++) {
-        bool is_handle = (handles.find(i) != handles.end());
-        bool is_anchor = (anchors.find(i) != anchors.end());
+        int8_t vert_type = vertex_type[i];
+        auto& VrowI = V.row(i);
+
         
-        if (is_handle || is_anchor) { 
-            b.row(i) = is_handle ? V_new.row(i) : V.row(i);
+        if (vert_type != 0) { 
+            b.row(i) = vert_type == 1 ? V_new.row(i) : VrowI;
             continue;  
         }
 
         Eigen::Vector3d row = Eigen::Vector3d::Zero();
         int n = 0;
         for (int j : adjacency[i]) {
-            double w = cells[i].weights[n];
-            row += (0.5 * w * (cells[i].rotation + cells[j].rotation) * (V.row(i) - V.row(j)).transpose()).transpose();
-            bool j_is_handle = (handles.find(j) != handles.end());
-            bool j_is_anchor = (anchors.find(j) != anchors.end());
+            Cell& ci = cells[i];
+            Cell& cj = cells[j];
+            double w = ci.weights[n];
+            auto& VrowJ = V.row(j);
+
+            Eigen::Matrix3d R = 0.5 * (ci.rotation + cj.rotation);
+            Eigen::Vector3d e = (VrowI - VrowJ).transpose();
+            row += w * (R * e);            
+
+            int8_t vert_type_j = vertex_type[j];
             
-            if (j_is_handle || j_is_anchor) { 
-                Eigen::Vector3d target = j_is_handle ? V_new.row(j).transpose() : V.row(j).transpose();
+            if (vert_type_j!=0) { 
+                Eigen::Vector3d target = vert_type_j==1 ? V_new.row(j).transpose() : VrowJ.transpose();
                 row += w * target;
             }
             n++;
@@ -71,30 +78,72 @@ Eigen::RowVector3d mouse_to_plane(const igl::opengl::glfw::Viewer& viewer, doubl
     Eigen::Vector3d intersection = ray_origin + t * ray_direction;
     
     return intersection.transpose(); 
+    
 }
 
-void solver_mouse_down(igl::opengl::glfw::Viewer& viewer, int button)
+double calculate_energy()
+{
+    double E = 0.0;
+    for(Cell& c : cells)
+    {
+        int i = 0;
+        for(int n: adjacency[c.point_idx])
+        {
+            Eigen::Vector3d e1 =
+            (V_new.row(c.point_idx) - V_new.row(n)).transpose();
+
+            Eigen::Vector3d e2 =
+                c.rotation * (V.row(c.point_idx) - V.row(n)).transpose();
+
+            Eigen::Vector3d diff = e1 - e2;
+
+            E += std::abs(c.weights[i]) * diff.squaredNorm();
+            i++;
+        }
+    }
+    return E;
+}
+
+// igl::ARAPData test;
+// Eigen::MatrixXd bc;
+void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button)
 {
     if(button != GLFW_MOUSE_BUTTON_LEFT) return;
 
     selected_vertex = point_picker(viewer);
-    if(selected_vertex == -1 || handles.find(selected_vertex) == handles.end())
+    if(selected_vertex == -1 || vertex_type[selected_vertex] != 1)
     {
         selected_vertex = -1; 
         return;
     }
-    V_new = V;
-    drag_plane_point = V.row(selected_vertex);
+    drag_plane_point = V_new.row(selected_vertex);
     drag_plane_normal = viewer.core().view.block<3,3>(0,0).row(2).cast<double>();
+
+    // Eigen::VectorXi b(anchors.size()+1);
+    // bc.resize(anchors.size()+1, 3);
+    // int i =0;   
+    // for (int n : anchors) {
+    //     b(i)=n;
+    //     bc.row(i) = V.row(n);
+    //     i++;
+    // }
+    // b(i) = selected_vertex;
+    // bc.row(i) = V.row(selected_vertex);
+
+    // test.energy= igl::ARAP_ENERGY_TYPE_SPOKES;
+    // igl::arap_precomputation(V,F,3,b,test);
+
     is_dragging = true;
 }
 
-bool solver_mouse_move(igl::opengl::glfw::Viewer& viewer, double xx, double yy)
+
+bool solver_mouse_move(igl::opengl::glfw::Viewer& /*viewer*/, double xx, double yy)
 {
     if(!is_dragging || selected_vertex == -1) return false;
     needs_draw = true;
     x = xx;
     y = yy;
+
     return true;
 }
 
@@ -105,28 +154,41 @@ void solver_pre_draw(igl::opengl::glfw::Viewer& viewer)
         
         for(int i=0; i<NUMBER_OF_ITERATIONS;i++)
         {
+            // auto start = std::chrono::high_resolution_clock::now();
             for(int i=0;i<V.rows();i++) cells[i].find_rotation(V_new);
+            // auto end = std::chrono::high_resolution_clock::now();
+            // std::chrono::duration<double> elapsed = end - start; 
+            // std::cout << "Time for rotations: " << elapsed.count() << " seconds\n";
+
+            // start = std::chrono::high_resolution_clock::now();
             build_b();
+            // end = std::chrono::high_resolution_clock::now();
+            // elapsed = end - start; 
+            // std::cout << "Time for building b: " << elapsed.count() << " seconds\n";
+
+            // start = std::chrono::high_resolution_clock::now();
             V_new = solver.solve(b);
+            // end = std::chrono::high_resolution_clock::now();
+            // elapsed = end - start; 
+            // std::cout << "Time for solver: " << elapsed.count() << " seconds\n";
         }
         
+        // bc.row(bc.rows()-1) = mouse_to_plane(viewer, x, y, drag_plane_point, drag_plane_normal);
+        // igl::arap_solve(bc,test,V_new);
+        
+        //std::cout << calculate_energy() << "\n";
         viewer.data().set_vertices(V_new);
         draw_vertices(viewer, false, true, true);
         needs_draw = false;
     }
 }
 
-void solver_mouse_up(igl::opengl::glfw::Viewer& viewer, int button)
+void solver_mouse_up(igl::opengl::glfw::Viewer& /*viewer*/, int button)
 {
     if(button == GLFW_MOUSE_BUTTON_LEFT)
     {
         is_dragging = false;
         needs_draw = false;
         selected_vertex = -1;
-        // if(V_new.size() != 0 || V != V_new)
-        // {
-        //     V = V_new;
-        //     draw_vertices(viewer, false, true, true);
-        // }
     }    
 }

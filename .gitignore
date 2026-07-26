@@ -32,4 +32,3 @@ compile_commands.json
 *.pdb
 
 /external
-/res
