@@ -91,6 +91,7 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
     if (context.algorithm == 0) {
         Eigen::MatrixXd b;
         for (int iter = 0; iter < context.number_of_iterations; iter++) {
+            #pragma omp parallel for
             for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
             build_b(context, b);
             context.V_new = context.solver.solve(b);
@@ -98,6 +99,7 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
     } else {
         context.libigl_bc.row(context.libigl_bc.rows() - 1) = new_handle_pos;
         igl::arap_solve(context.libigl_bc, context.libigl_solver, context.V_new);
+        #pragma omp parallel for
         for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
     }
 }

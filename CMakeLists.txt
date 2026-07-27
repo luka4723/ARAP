@@ -23,8 +23,9 @@ solver.cpp
 igl_include(glfw)
 igl_include(opengl)
 igl_include(imgui)
+find_package(OpenMP REQUIRED)
 
-target_link_libraries(ARAP PRIVATE igl::core igl::glfw igl::opengl igl::imgui)
+target_link_libraries(ARAP PRIVATE igl::core igl::glfw igl::opengl igl::imgui OpenMP::OpenMP_CXX)
 add_custom_command(TARGET ARAP POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/meshes
