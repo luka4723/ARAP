@@ -9,3 +9,4 @@ void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button);
 bool solver_mouse_move(igl::opengl::glfw::Viewer& viewer, double x, double y);
 void solver_mouse_up(igl::opengl::glfw::Viewer& viewer, int button);
 void solver_pre_draw(igl::opengl::glfw::Viewer& viewer);
+double calculate_energy();

@@ -30,3 +30,4 @@ add_custom_command(TARGET ARAP POST_BUILD
     ${CMAKE_SOURCE_DIR}/meshes
     $<TARGET_FILE_DIR:ARAP>/meshes
 )
+

@@ -6,16 +6,14 @@
 #include <Eigen/SparseCholesky>
 #include <Eigen/Sparse>
 
-
-const int NUMBER_OF_ITERATIONS = 5;
 bool is_dragging = false;
-
-
 Eigen::Vector3d drag_plane_point;
 Eigen::Vector3d drag_plane_normal;
 Eigen::MatrixXd b;
 bool needs_draw = false;
 double x,y;
+igl::ARAPData test;
+Eigen::MatrixXd bc;
 
 void build_b()
 {
@@ -23,7 +21,6 @@ void build_b()
     for (int i = 0; i < V.rows(); i++) {
         int8_t vert_type = vertex_type[i];
         auto& VrowI = V.row(i);
-
         
         if (vert_type != 0) { 
             b.row(i) = vert_type == 1 ? V_new.row(i) : VrowI;
@@ -97,15 +94,13 @@ double calculate_energy()
 
             Eigen::Vector3d diff = e1 - e2;
 
-            E += std::abs(c.weights[i]) * diff.squaredNorm();
+            E += c.weights[i] * diff.squaredNorm();
             i++;
         }
     }
     return E;
 }
 
-// igl::ARAPData test;
-// Eigen::MatrixXd bc;
 void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button)
 {
     if(button != GLFW_MOUSE_BUTTON_LEFT) return;
@@ -119,20 +114,21 @@ void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button)
     drag_plane_point = V_new.row(selected_vertex);
     drag_plane_normal = viewer.core().view.block<3,3>(0,0).row(2).cast<double>();
 
-    // Eigen::VectorXi b(anchors.size()+1);
-    // bc.resize(anchors.size()+1, 3);
-    // int i =0;   
-    // for (int n : anchors) {
-    //     b(i)=n;
-    //     bc.row(i) = V.row(n);
-    //     i++;
-    // }
-    // b(i) = selected_vertex;
-    // bc.row(i) = V.row(selected_vertex);
+    if(algorithm == 1){
+        Eigen::VectorXi b(anchors.size()+1);
+        bc.resize(anchors.size()+1, 3);
+        int i =0;   
+        for (int n : anchors) {
+            b(i)=n;
+            bc.row(i) = V.row(n);
+            i++;
+        }
+        b(i) = selected_vertex;
+        bc.row(i) = V.row(selected_vertex);
 
-    // test.energy= igl::ARAP_ENERGY_TYPE_SPOKES;
-    // igl::arap_precomputation(V,F,3,b,test);
-
+        test.energy= igl::ARAP_ENERGY_TYPE_SPOKES;
+        igl::arap_precomputation(V,F,3,b,test);
+    }
     is_dragging = true;
 }
 
@@ -150,33 +146,40 @@ bool solver_mouse_move(igl::opengl::glfw::Viewer& /*viewer*/, double xx, double 
 void solver_pre_draw(igl::opengl::glfw::Viewer& viewer)
 {
     if(needs_draw){
+        energy_flag = true;
         V_new.row(selected_vertex) = mouse_to_plane(viewer, x, y, drag_plane_point, drag_plane_normal);
         
-        for(int i=0; i<NUMBER_OF_ITERATIONS;i++)
+        if (algorithm == 0){
+            for(int i=0; i<number_of_iterations;i++)
+            {
+                // auto start = std::chrono::high_resolution_clock::now();
+                for(int i=0;i<V.rows();i++) cells[i].find_rotation(V_new);
+                // auto end = std::chrono::high_resolution_clock::now();
+                // std::chrono::duration<double> elapsed = end - start; 
+                // std::cout << "Time for rotations: " << elapsed.count() << " seconds\n";
+
+                // start = std::chrono::high_resolution_clock::now();
+                build_b();
+                // end = std::chrono::high_resolution_clock::now();
+                // elapsed = end - start; 
+                // std::cout << "Time for building b: " << elapsed.count() << " seconds\n";
+
+                // start = std::chrono::high_resolution_clock::now();
+                V_new = solver.solve(b);
+                // end = std::chrono::high_resolution_clock::now();
+                // elapsed = end - start; 
+                // std::cout << "Time for solver: " << elapsed.count() << " seconds\n";
+            }
+        }
+        else
         {
-            // auto start = std::chrono::high_resolution_clock::now();
+            bc.row(bc.rows()-1) = mouse_to_plane(viewer, x, y, drag_plane_point, drag_plane_normal);
+            igl::arap_solve(bc,test,V_new);
+
+            //for calculating energy
             for(int i=0;i<V.rows();i++) cells[i].find_rotation(V_new);
-            // auto end = std::chrono::high_resolution_clock::now();
-            // std::chrono::duration<double> elapsed = end - start; 
-            // std::cout << "Time for rotations: " << elapsed.count() << " seconds\n";
-
-            // start = std::chrono::high_resolution_clock::now();
-            build_b();
-            // end = std::chrono::high_resolution_clock::now();
-            // elapsed = end - start; 
-            // std::cout << "Time for building b: " << elapsed.count() << " seconds\n";
-
-            // start = std::chrono::high_resolution_clock::now();
-            V_new = solver.solve(b);
-            // end = std::chrono::high_resolution_clock::now();
-            // elapsed = end - start; 
-            // std::cout << "Time for solver: " << elapsed.count() << " seconds\n";
         }
         
-        // bc.row(bc.rows()-1) = mouse_to_plane(viewer, x, y, drag_plane_point, drag_plane_normal);
-        // igl::arap_solve(bc,test,V_new);
-        
-        //std::cout << calculate_energy() << "\n";
         viewer.data().set_vertices(V_new);
         draw_vertices(viewer, false, true, true);
         needs_draw = false;

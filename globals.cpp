@@ -1,7 +1,6 @@
 #include "globals.h"
 
 int mode = 0;
-
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
 std::vector<int> handles;
@@ -15,9 +14,14 @@ Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
 std::vector<int8_t> vertex_type;
 int selected_vertex = -1;
 Eigen::MatrixXd V_new;
+int number_of_iterations = 5;
+int algorithm = 0;
+bool energy_flag = false;
 
 bool load_mesh(){
     viewer.data().point_size = 10;  
+    viewer.core().is_animating = true;
+    viewer.core().animation_max_fps = 1000;
     if (!igl::readOFF("meshes/armadillo_1k.off", V, F))
     {
         std::cerr << "Error: Cannot load mesh" << std::endl;

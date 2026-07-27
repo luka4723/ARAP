@@ -24,6 +24,9 @@ extern Eigen::SparseMatrix<double> L;
 extern Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
 extern int selected_vertex;
 extern Eigen::MatrixXd V_new;
+extern int number_of_iterations;
+extern int algorithm;
+extern bool energy_flag;
 
 
 bool load_mesh();
