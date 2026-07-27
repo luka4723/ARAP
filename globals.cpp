@@ -49,7 +49,7 @@ void build_L()
 {
     std::vector<Eigen::Triplet<double>> triplets;
     for (int i = 0; i < V.rows(); i++) {
-        if (vertex_type[i]!=0) { 
+        if (i == selected_vertex || vertex_type[i] == 2) { 
             triplets.emplace_back(i, i, 1.0);
             continue;  
         }
@@ -59,7 +59,7 @@ void build_L()
         for (int j : adjacency[i]) {
             double w = cells[i].weights[n];
             val += w; 
-            if (vertex_type[j]==0) triplets.emplace_back(i, j, -w);   
+            if (j != selected_vertex && vertex_type[j] != 2) triplets.emplace_back(i, j, -w);   
             n++;
         }
         triplets.emplace_back(i, i, val);

@@ -84,12 +84,10 @@ void point_manager(int mode, igl::opengl::glfw::Viewer& viewer, int button, int 
     {      
       if(mode == 1 && vert_type!=2) {
         change_vertex_type(selected, 1);
-        build_L();
         draw_vertices(viewer, true, true, true);
       }
       else if(mode==2 && vert_type!=1){
         change_vertex_type(selected, 2);
-        build_L();
         draw_vertices(viewer, true, true, true);
       }
     }

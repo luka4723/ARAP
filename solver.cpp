@@ -19,12 +19,12 @@ void build_b()
 {
     b = Eigen::MatrixXd::Zero(V.rows(), 3);
     for (int i = 0; i < V.rows(); i++) {
-        int8_t vert_type = vertex_type[i];
         auto& VrowI = V.row(i);
         
-        if (vert_type != 0) { 
-            b.row(i) = vert_type == 1 ? V_new.row(i) : VrowI;
-            continue;  
+        if (i == selected_vertex || vertex_type[i] == 2)
+        {
+            b.row(i) = (i == selected_vertex) ? V_new.row(i) : VrowI;
+            continue;
         }
 
         Eigen::Vector3d row = Eigen::Vector3d::Zero();
@@ -38,11 +38,9 @@ void build_b()
             Eigen::Matrix3d R = 0.5 * (ci.rotation + cj.rotation);
             Eigen::Vector3d e = (VrowI - VrowJ).transpose();
             row += w * (R * e);            
-
-            int8_t vert_type_j = vertex_type[j];
             
-            if (vert_type_j!=0) { 
-                Eigen::Vector3d target = vert_type_j==1 ? V_new.row(j).transpose() : VrowJ.transpose();
+            if (j == selected_vertex || vertex_type[j] == 2) { 
+                Eigen::Vector3d target = j == selected_vertex ? V_new.row(j).transpose() : VrowJ.transpose();
                 row += w * target;
             }
             n++;
@@ -111,6 +109,7 @@ void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button)
         selected_vertex = -1; 
         return;
     }
+    build_L();
     drag_plane_point = V_new.row(selected_vertex);
     drag_plane_normal = viewer.core().view.block<3,3>(0,0).row(2).cast<double>();
 

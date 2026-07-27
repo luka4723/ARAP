@@ -93,7 +93,6 @@ void setup_menu(
             vertex_type.assign(V.rows(),0);
             V_new = V;
             viewer.data().set_vertices(V_new);
-            build_L();
             energy_flag = false;
             mode = 0;
             draw_vertices(viewer,false,false,false);
