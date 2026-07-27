@@ -1,38 +1,44 @@
 #include "menu.h"
 #include "point_manager.h"
-#include "globals.h"
 #include <GLFW/glfw3.h>
 #include "solver.h"
 
 int frame_count = 0;
-double last_time = glfwGetTime();
+double last_time = 0.0;
 double current_fps = 0.0;
 bool shows_energy = true;
 
-void setup_menu(
-    igl::opengl::glfw::Viewer& viewer,
-    igl::opengl::glfw::imgui::ImGuiMenu& menu
-)
+void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImGuiMenu& menu,
+                MeshContext& context)
 {
-    draw_vertices(viewer,false,true,true);
+    draw_vertices(viewer,context,false,true,true);
     viewer.callback_mouse_down = [&](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
     {
         if(button == GLFW_MOUSE_BUTTON_LEFT)
         {
-            if(mode==0) solver_mouse_down(viewer, button);
-            else point_manager(mode, viewer, button, modifier);
+            if(context.mode==0){
+                context.selected_vertex = point_picker(viewer, context);
+                if (context.selected_vertex != -1 && context.vertex_type[context.selected_vertex] == 1)
+                    prepare_drag_session(context, viewer.core().view);
+                else context.selected_vertex = -1;
+            }
+            else point_manager(context, viewer, button, modifier);
         }
         return false;
     };
-
-    viewer.callback_mouse_move = [](igl::opengl::glfw::Viewer& viewer, double x, double y)
-    {
-        return solver_mouse_move(viewer, x, y);
-    };
+    viewer.callback_mouse_move = [&context](igl::opengl::glfw::Viewer& /*viewer*/, double x, double y) {
+            if (context.is_dragging && context.selected_vertex != -1)
+            {
+                context.needs_draw = true;
+                context.mouse_x = x;
+                context.mouse_y = y;
+                return true;
+            }
+            return false;
+        };
     
-    viewer.callback_pre_draw = [](igl::opengl::glfw::Viewer& viewer)
+    viewer.callback_pre_draw = [&context](igl::opengl::glfw::Viewer& viewer)
     {
-        
         double current_time = glfwGetTime();
         frame_count++;
         if (current_time - last_time >= 1.0) {
@@ -40,46 +46,58 @@ void setup_menu(
             frame_count = 0;
             last_time = current_time;
         }
-        solver_pre_draw(viewer);
+        if (context.needs_draw) {
+            Eigen::RowVector3d target_pos = mouse_to_plane(context.mouse_x, context.mouse_y, viewer.core().view,
+                                                           viewer.core().proj, viewer.core().viewport,
+                                                           context.drag_plane_point, context.drag_plane_normal);
+            solve_arap_step(context, target_pos);
+            viewer.data().set_vertices(context.V_new);
+            draw_vertices(viewer, context, false, true, true);
+            context.needs_draw = false;
+        }
         return false;
     };
-    viewer.callback_mouse_up = [](igl::opengl::glfw::Viewer& viewer, int button, int modifier)
-    {
-        solver_mouse_up(viewer, button);
+
+    viewer.callback_mouse_up = [&context](igl::opengl::glfw::Viewer& /*viewer*/, int button, int modifier) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            context.is_dragging = false;
+            context.needs_draw = false;
+            context.selected_vertex = -1;
+        }
         return false;
     };
     
-    menu.callback_draw_viewer_menu = [&]()
+    menu.callback_draw_viewer_menu = [&context, &viewer]()
     {
         
-        if(ImGui::RadioButton("None", mode == 0))
+        if(ImGui::RadioButton("None", context.mode == 0))
         {
-            mode = 0;
-            draw_vertices(viewer,false,true,true);
+            context.mode = 0;
+            draw_vertices(viewer,context,false,true,true);
         }
         
-        if(ImGui::RadioButton("Handle Selection", mode == 1))
+        if(ImGui::RadioButton("Handle Selection", context.mode == 1))
         {
-            mode = 1;
-            draw_vertices(viewer,true,true,true);
+            context.mode = 1;
+            draw_vertices(viewer,context,true,true,true);
         }
         
-        if(ImGui::RadioButton("Anchor Selection", mode == 2))
+        if(ImGui::RadioButton("Anchor Selection", context.mode == 2))
         {
-            mode = 2;
-            draw_vertices(viewer,true,true,true);
+            context.mode = 2;
+            draw_vertices(viewer,context,true,true,true);
         }
         
-        if(ImGui::RadioButton("Handle Removal", mode == 3))
+        if(ImGui::RadioButton("Handle Removal", context.mode == 3))
         {
-            mode = 3;
-            draw_vertices(viewer,false,true,false);
+            context.mode = 3;
+            draw_vertices(viewer,context,false,true,false);
         }
         
-        if(ImGui::RadioButton("Anchor Removal", mode == 4))
+        if(ImGui::RadioButton("Anchor Removal", context.mode == 4))
         {
-            mode = 4;
-            draw_vertices(viewer,false,false,true);
+            context.mode = 4;
+            draw_vertices(viewer,context,false,false,true);
         }
         
         
@@ -87,26 +105,17 @@ void setup_menu(
         {
             // for(int n : anchors) std::cout << "ANCHORS: " << n << "\n";
             // for(int n : handles) std::cout << "HANDLES: " << n << "\n";
-            
-            handles.clear();
-            anchors.clear();
-            vertex_type.assign(V.rows(),0);
-            V_new = V;
-            viewer.data().set_vertices(V_new);
-            energy_flag = false;
-            mode = 0;
-            draw_vertices(viewer,false,false,false);
+            context.reset_all();
+            viewer.data().set_vertices(context.V_new);
+            draw_vertices(viewer,context,false,false,false);
         }
         ImGui::Separator();
-        ImGui::SliderInt("Iterations", &number_of_iterations, 1, 100);
-        if (ImGui::RadioButton("Custom ARAP", algorithm == 0)) algorithm = 0;
-        if (ImGui::RadioButton("libigl ARAP", algorithm == 1)) algorithm = 1;
+        ImGui::SliderInt("Iterations", &context.number_of_iterations, 1, 100);
+        if (ImGui::RadioButton("Custom ARAP", context.algorithm == 0)) context.algorithm = 0;
+        if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Text("FPS: %.1f", current_fps);
         ImGui::Checkbox("Show energy", &shows_energy);
-        double E;
-        if(energy_flag) E = calculate_energy();
-        else E = 0.0;
-        if(shows_energy) ImGui::Text("Energy %.2f", E);
+        if(shows_energy) ImGui::Text("Energy %.2f", context.calculate_energy());
         else ImGui::Text("FPS: N/A");
         //ImGui::End();
     };

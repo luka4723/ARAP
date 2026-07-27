@@ -1,17 +1,9 @@
 #include "cell.h"
-#include "globals.h"
+#include <igl/polar_svd3x3.h>
 
-void populate_cells()
+Cell::Cell(int point_idx, const Eigen::MatrixXd& V, const std::vector<std::vector<int>>& adjacency,
+           const std::map<std::pair<int, int>, std::vector<double>>& angles) : point_idx(point_idx) 
 {
-    //auto start = std::chrono::high_resolution_clock::now();
-    cells.reserve(V.rows());
-    for(int i=0;i<V.rows();i++) cells.emplace_back(i);
-    //auto end = std::chrono::high_resolution_clock::now();
-    //std::chrono::duration<double> elapsed = end - start; 
-    //std::cout << "Time: " << elapsed.count() << " seconds\n";
-}
-
-Cell::Cell(int point_idx) : point_idx(point_idx) {
     int neighbors_size = adjacency[point_idx].size();
     weight_edges.resize(3, neighbors_size);
     weights.resize(neighbors_size);
@@ -23,9 +15,9 @@ Cell::Cell(int point_idx) : point_idx(point_idx) {
 
         int a = std::min(n,point_idx);
         int b = std::max(n,point_idx);
-        double alpha = angles[{a,b}][0];
-        double beta = 0;
-        if(angles[{a,b}].size() == 2 ) beta = angles[{a,b}][1];
+        auto it = angles.find({a, b});
+        double alpha = (it != angles.end() && !it->second.empty()) ? it->second[0] : 0.0;
+        double beta = (it != angles.end() && it->second.size() == 2) ? it->second[1] : 0.0;
         weights[k] = ((alpha+beta)/2.0); 
         weight_edges.col(k) = weights[k] * (V.row(point_idx) - V.row(n)).transpose();
         k++;    
@@ -57,7 +49,7 @@ void Cell::find_rotation(const Eigen::MatrixXd& V_new){
     rotation.transposeInPlace();
 }
 
-double cotangent(int a, int b, int c)
+double cotangent(const Eigen::MatrixXd& V, int a, int b, int c)
 {
     Eigen::Vector3d A = V.row(a);
     Eigen::Vector3d B = V.row(b);
@@ -67,27 +59,4 @@ double cotangent(int a, int b, int c)
     Eigen::Vector3d v = C - A;
 
     return u.dot(v) / u.cross(v).norm();
-}
-
-void precompute_angles()
-{
-    for(int i=0; i<F.rows();i++)
-    {
-        int a = F(i,0);
-        int b = F(i,1);
-        int c = F(i,2);
-
-        auto add_angle = [&](int x, int y, int opposite)
-        {
-            int a = std::min(x,y);
-            int b = std::max(x,y);
-
-            angles[{a,b}].push_back(cotangent(opposite,x,y));
-        };
-
-        add_angle(a,b,c);
-        add_angle(b,c,a);
-        add_angle(a,c,b);
-    }
-    populate_cells();
 }

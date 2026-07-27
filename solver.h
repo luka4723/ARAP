@@ -1,12 +1,12 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <igl/opengl/glfw/Viewer.h>
+#include "mesh_context.h"
 
-extern Eigen::MatrixXd V_new;
 
-void solver_mouse_down(const igl::opengl::glfw::Viewer& viewer, int button);
-bool solver_mouse_move(igl::opengl::glfw::Viewer& viewer, double x, double y);
-void solver_mouse_up(igl::opengl::glfw::Viewer& viewer, int button);
-void solver_pre_draw(igl::opengl::glfw::Viewer& viewer);
-double calculate_energy();
+void build_b(MeshContext& context, Eigen::MatrixXd& b);
+Eigen::RowVector3d mouse_to_plane(double mouse_x, double mouse_y, const Eigen::Matrix4f& view,
+                                  const Eigen::Matrix4f& proj, const Eigen::Vector4f& viewport,
+                                  const Eigen::Vector3d& plane_point, const Eigen::Vector3d& plane_normal);
+void prepare_drag_session(MeshContext& ctx, const Eigen::Matrix4f& view_matrix);
+void solve_arap_step(MeshContext& ctx, const Eigen::RowVector3d& new_handle_pos);

@@ -13,7 +13,7 @@ add_subdirectory(external/libigl)
 
 add_executable(ARAP
 main.cpp
-globals.cpp
+mesh_context.cpp
 menu.cpp
 point_manager.cpp
 cell.cpp
