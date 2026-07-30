@@ -13,20 +13,25 @@ bool MeshContext::load_mesh(const std::string& filepath)
 
     igl::adjacency_list(F, adjacency);
     V_new = V;
+    C.resize(V.rows(),3);
+    C.setConstant(0.0);
     anchors.clear();
     handles.clear();
     vertex_type.assign(V.rows(), 0);
     L.resize(V.rows(), V.rows());
     mode = 0;
 
-    // for (int n : initial_anchors) {
-    //     anchors.push_back(n);
-    //     vertex_type[n] = 2;
-    // }
-    // for (int n : initial_handles) {
-    //     handles.push_back(n);
-    //     vertex_type[n] = 1;
-    // }
+      std::vector<int> initial_anchors = {330, 18, 380, 300, 235, 677, 818, 189, 108};
+  std::vector<int> initial_handles = {853};
+    for (int n : initial_anchors) {
+        anchors.push_back(n);
+        vertex_type[n] = 2;
+    }
+    for (int n : initial_handles) {
+        handles.push_back(n);
+        vertex_type[n] = 1;
+    }
+
     precompute_angles();
     populate_cells();
     return true;
@@ -119,18 +124,24 @@ void MeshContext::reset_mesh() {
     needs_draw = false;
 }
 
-double MeshContext::calculate_energy() const {
+double MeshContext::calculate_energy() {
     double E = 0.0;
+    C.col(0).setConstant(0.0);
+    C.col(2).setConstant(1.0);
     for (const Cell& c : cells) {
+        C(c.point_idx,0) = 0.0;
         int i = 0;
         for (int n : adjacency[c.point_idx]) {
             Eigen::Vector3d e1 = (V_new.row(c.point_idx) - V_new.row(n)).transpose();
             Eigen::Vector3d e2 = c.rotation * (V.row(c.point_idx) - V.row(n)).transpose();
             Eigen::Vector3d diff = e1 - e2;
-
-            E += c.weights[i] * diff.squaredNorm();
+            double local_energy = c.weights[i] * diff.squaredNorm();
+            C(c.point_idx,0) += local_energy;
+            E += local_energy;
             i++;
         }
+        C(c.point_idx,0) = std::clamp(C(c.point_idx,0)*energy_color_coeff, 0.0, 1.0);
+        C(c.point_idx,2) -= C(c.point_idx,0);
     }
     return E;
 }

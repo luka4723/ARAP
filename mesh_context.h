@@ -16,6 +16,7 @@ struct MeshContext {
     Eigen::MatrixXd V;
     Eigen::MatrixXd V_new;
     Eigen::MatrixXi F;
+    Eigen::MatrixXd C;
     
     std::vector<std::vector<int>> adjacency;
     std::map<std::pair<int, int>, std::vector<double>> angles;
@@ -33,6 +34,7 @@ struct MeshContext {
     int mode = 0; 
     int selected_vertex = -1;
     int number_of_iterations = 5;
+    int energy_color_coeff = 50;
     int algorithm = 0; // 0: Custom ARAP, 1: libigl ARAP
     bool is_dragging = false;
     bool needs_draw = false;
@@ -43,14 +45,11 @@ struct MeshContext {
     Eigen::Vector3d drag_plane_normal;
 
     bool load_mesh(const std::string& filepath);
-    // bool load_mesh(const std::string& filepath, 
-    //                const std::vector<int>& initial_anchors = {}, 
-    //                const std::vector<int>& initial_handles = {});
     void precompute_angles();
     void populate_cells();
     void build_L();
     void change_vertex_type(int i, int8_t new_type);
     void reset_vertices();
     void reset_mesh();
-    double calculate_energy() const;
+    double calculate_energy();
 };

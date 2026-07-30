@@ -138,7 +138,16 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Text("FPS: %.1f", current_fps);
         ImGui::Checkbox("Show energy", &shows_energy);
-        if(shows_energy) ImGui::Text("Energy %.2f", context.calculate_energy());
-        else ImGui::Text("FPS: N/A");
+        ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100);
+        if(shows_energy) {
+            ImGui::Text("Energy %.2f", context.calculate_energy());
+            viewer.data().set_colors(context.C);
+        }
+        else {
+            ImGui::Text("FPS: N/A");
+            context.C.col(0).setConstant(0.0);
+            context.C.col(2).setConstant(1.0);
+            viewer.data().set_colors(context.C);
+        }
     };
 }
