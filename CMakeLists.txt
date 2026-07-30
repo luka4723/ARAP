@@ -8,25 +8,42 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(external/libigl)
+include(FetchContent)
+
+FetchContent_Declare(
+    libigl
+    GIT_REPOSITORY https://github.com/libigl/libigl.git
+    GIT_TAG v2.5.0
+)
+
+FetchContent_MakeAvailable(libigl)
 
 igl_include(glfw)
 igl_include(opengl)
 igl_include(imgui)
 
-find_package(OpenMP REQUIRED)
+FetchContent_Declare(
+    ImGuiFileDialog
+    GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog.git
+    GIT_TAG v0.6
+)
+
+FetchContent_MakeAvailable(ImGuiFileDialog)
+
 
 add_library(imguifiledialog
-    external/ImGuiFileDialog/ImGuiFileDialog.cpp
+    ${imguifiledialog_SOURCE_DIR}/ImGuiFileDialog.cpp
 )
 
 target_include_directories(imguifiledialog PUBLIC
-    external/ImGuiFileDialog
+    ${imguifiledialog_SOURCE_DIR}
 )
 
 target_link_libraries(imguifiledialog PUBLIC
     igl::imgui
 )
+
+find_package(OpenMP REQUIRED)
 
 add_executable(ARAP
     main.cpp
