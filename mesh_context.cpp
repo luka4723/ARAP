@@ -3,6 +3,8 @@
 #include <igl/adjacency_list.h>
 #include <iostream>
 #include <algorithm>
+#include <fstream>
+#include <filesystem>
 
 bool MeshContext::load_mesh(const std::string& filepath) 
 {
@@ -11,6 +13,7 @@ bool MeshContext::load_mesh(const std::string& filepath)
         return false;
     }
 
+    name = std::filesystem::path(filepath).stem().string();
     igl::adjacency_list(F, adjacency);
     V_new = V;
     C.resize(V.rows(),3);
@@ -20,17 +23,6 @@ bool MeshContext::load_mesh(const std::string& filepath)
     vertex_type.assign(V.rows(), 0);
     L.resize(V.rows(), V.rows());
     mode = 0;
-
-      std::vector<int> initial_anchors = {330, 18, 380, 300, 235, 677, 818, 189, 108};
-  std::vector<int> initial_handles = {853};
-    for (int n : initial_anchors) {
-        anchors.push_back(n);
-        vertex_type[n] = 2;
-    }
-    for (int n : initial_handles) {
-        handles.push_back(n);
-        vertex_type[n] = 1;
-    }
 
     precompute_angles();
     populate_cells();
@@ -144,4 +136,84 @@ double MeshContext::calculate_energy() {
         C(c.point_idx,2) -= C(c.point_idx,0);
     }
     return E;
+}
+
+void MeshContext::load_config()
+{
+    std::ifstream file("config.txt");
+    if (!file.is_open()) {
+        std::cout << "Cannot open file\n";
+    }
+    std::string temp;
+    while (file >> temp) {
+        if (temp == name) break;
+    }
+    if(!file) return;
+
+    vertex_type.assign(V.rows(), 0);
+    anchors.clear();
+    handles.clear();
+    int num;
+
+    file >> temp;
+    file >> num;
+    for(int i =0;i<num;i++)
+    {
+        int val;
+        file >> val;
+        change_vertex_type(val, 1);
+    }
+    file >> temp;
+    file >> num;
+
+    for(int i =0;i<num;i++)
+    {
+        int val;
+        file >> val;
+        change_vertex_type(val, 2);
+    }
+    file.close();
+}
+
+void MeshContext::save_config()
+{
+    std::ifstream in("config.txt");
+    std::vector<std::string> lines;
+    std::string line;
+    bool skip = false;
+
+    while (std::getline(in, line))
+    {
+        if (line == name)
+        {
+            skip = true;
+            continue;
+        }
+        if (skip)
+        {
+            if (line.empty())
+                skip = false;
+            continue;
+        }
+        lines.push_back(line);
+    }
+    in.close();
+
+    std::ofstream out("config.txt", std::ios::trunc);
+
+    for (const auto& l : lines) out << l << '\n';
+
+    out << name << '\n';
+
+    out << "handles " << handles.size();
+    for (int h : handles) out << ' ' << h;
+    out << '\n';
+
+    out << "anchors " << anchors.size();
+    for (int a : anchors) out << ' ' << a;
+    out << '\n';
+    
+    out << '\n';
+
+    out.close();
 }

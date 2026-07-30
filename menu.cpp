@@ -132,6 +132,12 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             viewer.data().set_vertices(context.V_new);
             draw_vertices(viewer,context,false,true,true);
         }
+        if(ImGui::Button("Save Vertices"))context.save_config();
+        if(ImGui::Button("Load Config")){
+            context.load_config();
+            draw_vertices(viewer, context, false, true, true);
+            context.mode = 0;
+        }
         ImGui::Separator();
         ImGui::SliderInt("Iterations", &context.number_of_iterations, 1, 100);
         if (ImGui::RadioButton("Custom ARAP", context.algorithm == 0)) context.algorithm = 0;

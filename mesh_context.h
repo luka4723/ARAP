@@ -13,6 +13,8 @@
 
 
 struct MeshContext {
+    std::string name;
+
     Eigen::MatrixXd V;
     Eigen::MatrixXd V_new;
     Eigen::MatrixXi F;
@@ -45,6 +47,8 @@ struct MeshContext {
     Eigen::Vector3d drag_plane_normal;
 
     bool load_mesh(const std::string& filepath);
+    void load_config();
+    void save_config();
     void precompute_angles();
     void populate_cells();
     void build_L();

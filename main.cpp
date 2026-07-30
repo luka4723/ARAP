@@ -11,9 +11,6 @@ int main(int argc, char *argv[])
 {
   MeshContext context;
 
-  std::vector<int> default_anchors = {330, 18, 380, 300, 235, 677, 818, 189, 108};
-  std::vector<int> default_handles = {853};
-
   if(!context.load_mesh("meshes/armadillo_1k.off")) return EXIT_FAILURE;
 
   igl::opengl::glfw::Viewer viewer;
