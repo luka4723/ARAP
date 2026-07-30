@@ -2,6 +2,7 @@
 #include "point_manager.h"
 #include <GLFW/glfw3.h>
 #include "solver.h"
+#include "ImGuiFileDialog.h"
 
 int frame_count = 0;
 double last_time = 0.0;
@@ -50,7 +51,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             Eigen::RowVector3d target_pos = mouse_to_plane(context.mouse_x, context.mouse_y, viewer.core().view,
                                                            viewer.core().proj, viewer.core().viewport,
                                                            context.drag_plane_point, context.drag_plane_normal);
-            solve_arap_step(context, target_pos);
+            solve_arap_step(context, target_pos, shows_energy);
             viewer.data().set_vertices(context.V_new);
             draw_vertices(viewer, context, false, true, true);
             context.needs_draw = false;
@@ -69,7 +70,28 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
     
     menu.callback_draw_viewer_menu = [&context, &viewer]()
     {
-        
+        if (ImGui::Button("Open Mesh"))
+        {
+            ImGuiFileDialog::Instance()->OpenDialog(
+                "MeshDlg",          
+                "Open Mesh",        
+                ".off,.obj,.ply",   
+                "."                 
+            );
+        }
+
+        if (ImGuiFileDialog::Instance()->Display("MeshDlg"))
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                std::string file = ImGuiFileDialog::Instance()->GetFilePathName();
+                context.load_mesh(file);
+                viewer.data().clear();
+                viewer.data().set_mesh(context.V_new, context.F);
+            }
+
+            ImGuiFileDialog::Instance()->Close();
+        }
         if(ImGui::RadioButton("None", context.mode == 0))
         {
             context.mode = 0;
@@ -99,15 +121,16 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             context.mode = 4;
             draw_vertices(viewer,context,false,false,true);
         }
-        
-        
-        if(ImGui::Button("Reset All"))
+        if(ImGui::Button("Reset Vertices"))
         {
-            // for(int n : anchors) std::cout << "ANCHORS: " << n << "\n";
-            // for(int n : handles) std::cout << "HANDLES: " << n << "\n";
-            context.reset_all();
-            viewer.data().set_vertices(context.V_new);
+            context.reset_vertices();
             draw_vertices(viewer,context,false,false,false);
+        }
+        if(ImGui::Button("Reset Mesh"))
+        {
+            context.reset_mesh();
+            viewer.data().set_vertices(context.V_new);
+            draw_vertices(viewer,context,false,true,true);
         }
         ImGui::Separator();
         ImGui::SliderInt("Iterations", &context.number_of_iterations, 1, 100);
@@ -117,6 +140,5 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         ImGui::Checkbox("Show energy", &shows_energy);
         if(shows_energy) ImGui::Text("Energy %.2f", context.calculate_energy());
         else ImGui::Text("FPS: N/A");
-        //ImGui::End();
     };
 }

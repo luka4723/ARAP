@@ -42,13 +42,15 @@ struct MeshContext {
     Eigen::Vector3d drag_plane_point;
     Eigen::Vector3d drag_plane_normal;
 
-    bool load_mesh(const std::string& filepath, 
-                   const std::vector<int>& initial_anchors = {}, 
-                   const std::vector<int>& initial_handles = {});
+    bool load_mesh(const std::string& filepath);
+    // bool load_mesh(const std::string& filepath, 
+    //                const std::vector<int>& initial_anchors = {}, 
+    //                const std::vector<int>& initial_handles = {});
     void precompute_angles();
     void populate_cells();
     void build_L();
     void change_vertex_type(int i, int8_t new_type);
-    void reset_all();
+    void reset_vertices();
+    void reset_mesh();
     double calculate_energy() const;
 };

@@ -18,7 +18,7 @@ Cell::Cell(int point_idx, const Eigen::MatrixXd& V, const std::vector<std::vecto
         auto it = angles.find({a, b});
         double alpha = (it != angles.end() && !it->second.empty()) ? it->second[0] : 0.0;
         double beta = (it != angles.end() && it->second.size() == 2) ? it->second[1] : 0.0;
-        weights[k] = ((alpha+beta)/2.0); 
+        weights[k] = std::max(0.0, (alpha+beta)/2.0);
         weight_edges.col(k) = weights[k] * (V.row(point_idx) - V.row(n)).transpose();
         k++;    
     }

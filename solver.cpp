@@ -85,7 +85,7 @@ void prepare_drag_session(MeshContext& context, const Eigen::Matrix4f& view_matr
     context.is_dragging = true;
 }
 
-void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos) {
+void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos, bool energy_flag) {
     context.V_new.row(context.selected_vertex) = new_handle_pos;
 
     if (context.algorithm == 0) {
@@ -99,7 +99,12 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
     } else {
         context.libigl_bc.row(context.libigl_bc.rows() - 1) = new_handle_pos;
         igl::arap_solve(context.libigl_bc, context.libigl_solver, context.V_new);
-        #pragma omp parallel for
-        for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+        if (energy_flag){
+            #pragma omp parallel for
+            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+        }
+        else{
+            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+        }
     }
 }

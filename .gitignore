@@ -26,9 +26,6 @@ compile_commands.json
 *.exe
 *.dll
 *.lib
-*.obj
 *.o
 *.out
 *.pdb
-
-/external

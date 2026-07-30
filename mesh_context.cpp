@@ -1,13 +1,12 @@
 #include "mesh_context.h"
-#include <igl/readOFF.h>
+#include <igl/read_triangle_mesh.h>
 #include <igl/adjacency_list.h>
 #include <iostream>
 #include <algorithm>
 
-bool MeshContext::load_mesh(const std::string& filepath, const std::vector<int>& initial_anchors, 
-                            const std::vector<int>& initial_handles) 
+bool MeshContext::load_mesh(const std::string& filepath) 
 {
-    if (!igl::readOFF(filepath, V, F)) {
+    if (!igl::read_triangle_mesh(filepath, V, F)) {
         std::cerr << "Cannot load mesh from: " << filepath << std::endl;
         return false;
     }
@@ -18,15 +17,16 @@ bool MeshContext::load_mesh(const std::string& filepath, const std::vector<int>&
     handles.clear();
     vertex_type.assign(V.rows(), 0);
     L.resize(V.rows(), V.rows());
+    mode = 0;
 
-    for (int n : initial_anchors) {
-        anchors.push_back(n);
-        vertex_type[n] = 2;
-    }
-    for (int n : initial_handles) {
-        handles.push_back(n);
-        vertex_type[n] = 1;
-    }
+    // for (int n : initial_anchors) {
+    //     anchors.push_back(n);
+    //     vertex_type[n] = 2;
+    // }
+    // for (int n : initial_handles) {
+    //     handles.push_back(n);
+    //     vertex_type[n] = 1;
+    // }
     precompute_angles();
     populate_cells();
     return true;
@@ -104,13 +104,17 @@ void MeshContext::change_vertex_type(int i, int8_t new_type) {
     }
 }
 
-void MeshContext::reset_all() {
+void MeshContext::reset_vertices() {
     handles.clear();
     anchors.clear();
     vertex_type.assign(V.rows(), 0);
+}
+
+void MeshContext::reset_mesh() {
     V_new = V;
     mode = 0;
     selected_vertex = -1;
+    for (Cell& c : cells) c.rotation = Eigen::Matrix3d::Identity();
     is_dragging = false;
     needs_draw = false;
 }

@@ -9,4 +9,4 @@ Eigen::RowVector3d mouse_to_plane(double mouse_x, double mouse_y, const Eigen::M
                                   const Eigen::Matrix4f& proj, const Eigen::Vector4f& viewport,
                                   const Eigen::Vector3d& plane_point, const Eigen::Vector3d& plane_normal);
 void prepare_drag_session(MeshContext& ctx, const Eigen::Matrix4f& view_matrix);
-void solve_arap_step(MeshContext& ctx, const Eigen::RowVector3d& new_handle_pos);
+void solve_arap_step(MeshContext& ctx, const Eigen::RowVector3d& new_handle_pos, bool energy_flag);
