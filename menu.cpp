@@ -8,6 +8,7 @@ int frame_count = 0;
 double last_time = 0.0;
 double current_fps = 0.0;
 bool shows_energy = true;
+double energy = 0.0;
 
 void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImGuiMenu& menu,
                 MeshContext& context)
@@ -52,6 +53,16 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
                                                            viewer.core().proj, viewer.core().viewport,
                                                            context.drag_plane_point, context.drag_plane_normal);
             solve_arap_step(context, target_pos, shows_energy);
+            if (shows_energy)
+            {
+                #pragma omp parallel for
+                for (int i = 0; i < context.V.rows(); i++)
+                {
+                    context.cells[i].find_rotation(context.V_new);
+                }
+                energy = context.calculate_energy();
+                viewer.data().set_colors(context.C);
+            }
             viewer.data().set_vertices(context.V_new);
             draw_vertices(viewer, context, false, true, true);
             context.needs_draw = false;
@@ -144,9 +155,9 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Text("FPS: %.1f", current_fps);
         ImGui::Checkbox("Show energy", &shows_energy);
-        ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100);
+        if (ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100)) energy = context.calculate_energy();
         if(shows_energy) {
-            ImGui::Text("Energy %.2f", context.calculate_energy());
+            ImGui::Text("Energy %.2f", energy);
             viewer.data().set_colors(context.C);
         }
         else {

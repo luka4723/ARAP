@@ -17,7 +17,8 @@ bool MeshContext::load_mesh(const std::string& filepath)
     igl::adjacency_list(F, adjacency);
     V_new = V;
     C.resize(V.rows(),3);
-    C.setConstant(0.0);
+    C.row(0).setConstant(0.0);
+    C.col(2).setConstant(1.0);
     anchors.clear();
     handles.clear();
     vertex_type.assign(V.rows(), 0);
