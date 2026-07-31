@@ -5,7 +5,7 @@ void build_b(MeshContext& context, Eigen::MatrixXd& b)
 {
     b = Eigen::MatrixXd::Zero(context.V.rows(), 3);
     for (int i = 0; i < context.V.rows(); i++) {
-        auto& VrowI = context.V.row(i);
+        auto VrowI = context.V.row(i);
         
         if (i == context.selected_vertex || context.vertex_type[i] == 2)
         {
@@ -19,7 +19,7 @@ void build_b(MeshContext& context, Eigen::MatrixXd& b)
             Cell& ci = context.cells[i];
             Cell& cj = context.cells[j];
             double w = ci.weights[n];
-            auto& VrowJ = context.V.row(j);
+            auto VrowJ = context.V.row(j);
 
             Eigen::Matrix3d R = 0.5 * (ci.rotation + cj.rotation);
             Eigen::Vector3d e = (VrowI - VrowJ).transpose();
@@ -95,6 +95,8 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
             for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
             build_b(context, b);
             context.V_new = context.solver.solve(b);
+            if (context.solver.info() != Eigen::Success) std::cerr << "ARAP solve failed\n";
+
         }
     } else {
         context.libigl_bc.row(context.libigl_bc.rows() - 1) = new_handle_pos;

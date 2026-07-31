@@ -25,6 +25,10 @@ bool MeshContext::load_mesh(const std::string& filepath)
     L.resize(V.rows(), V.rows());
     mode = 0;
 
+    selected_vertex = -1;
+    is_dragging = false;
+    needs_draw = false;
+
     precompute_angles();
     populate_cells();
     return true;
@@ -87,6 +91,7 @@ void MeshContext::build_L()
     L.setFromTriplets(triplets.begin(), triplets.end());
     L.makeCompressed();
     solver.compute(L);
+    if (solver.info() != Eigen::Success) std::cerr << "ARAP factorization failed\n";
 }
 
 void MeshContext::change_vertex_type(int i, int8_t new_type) {
