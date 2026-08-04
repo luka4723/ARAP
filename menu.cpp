@@ -9,6 +9,7 @@ double last_time = 0.0;
 double current_fps = 0.0;
 bool shows_energy = true;
 double energy = 0.0;
+int last_selected = -2;
 
 void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImGuiMenu& menu,
                 MeshContext& context)
@@ -56,10 +57,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             if (shows_energy)
             {
                 #pragma omp parallel for
-                for (int i = 0; i < context.V.rows(); i++)
-                {
-                    context.cells[i].find_rotation(context.V_new);
-                }
+                for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new, context.halfedges);
                 energy = context.calculate_energy();
                 viewer.data().set_colors(context.C);
             }
@@ -74,6 +72,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             context.is_dragging = false;
             context.needs_draw = false;
+            last_selected = context.selected_vertex;
             context.selected_vertex = -1;
         }
         return false;
@@ -151,6 +150,23 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         }
         ImGui::Separator();
         ImGui::SliderInt("Iterations", &context.number_of_iterations, 1, 100);
+        if (ImGui::SliderInt("Smoothness factor", &context.lambda, 0, 99)) 
+        {
+            context.build_left_side();
+            if (context.algorithm == 0 && last_selected >= 0)
+            {
+                context.selected_vertex = last_selected;
+                Eigen::RowVector3d target = context.V_new.row(context.selected_vertex);
+
+                context.factorize_left_side();
+                solve_arap_step(context, target, shows_energy);
+
+                viewer.data().set_vertices(context.V_new);
+                draw_vertices(viewer, context, false, true, true);
+
+                context.selected_vertex = -1;
+            }
+        }
         if (ImGui::RadioButton("Custom ARAP", context.algorithm == 0)) context.algorithm = 0;
         if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Text("FPS: %.1f", current_fps);

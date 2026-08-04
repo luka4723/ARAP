@@ -3,35 +3,23 @@
 
 void build_b(MeshContext& context, Eigen::MatrixXd& b)
 {
-    b = Eigen::MatrixXd::Zero(context.V.rows(), 3);
-    for (int i = 0; i < context.V.rows(); i++) {
-        auto VrowI = context.V.row(i);
-        
-        if (i == context.selected_vertex || context.vertex_type[i] == 2)
+    b.setZero(context.V.rows(), 3);
+    for (int i=0; i<context.F.rows(); i++) {
+        const int a = context.F(i, 0);
+        const int b_idx = context.F(i, 1);
+        const int c = context.F(i, 2);
+
+        const Eigen::Matrix3d R = (context.cells[a].rotation + context.cells[b_idx].rotation +
+                                                  context.cells[c].rotation) / 3.0;
+
+        for (int k = 0; k < 3; ++k) 
         {
-            b.row(i) = (i == context.selected_vertex) ? context.V_new.row(i) : VrowI;
-            continue;
-        }
+            const HalfEdge& he = context.halfedges[3 * i + k];
+            const Eigen::Vector3d val = 0.5 * R * he.weight_edge;
 
-        Eigen::Vector3d row = Eigen::Vector3d::Zero();
-        int n = 0;
-        for (int j : context.adjacency[i]) {
-            Cell& ci = context.cells[i];
-            Cell& cj = context.cells[j];
-            double w = ci.weights[n];
-            auto VrowJ = context.V.row(j);
-
-            Eigen::Matrix3d R = 0.5 * (ci.rotation + cj.rotation);
-            Eigen::Vector3d e = (VrowI - VrowJ).transpose();
-            row += w * (R * e);            
-            
-            if (j == context.selected_vertex || context.vertex_type[j] == 2) { 
-                Eigen::Vector3d target = j == context.selected_vertex ? context.V_new.row(j).transpose() : VrowJ.transpose();
-                row += w * target;
-            }
-            n++;
+            b.row(he.to) += val.transpose();
+            b.row(he.from) -= val.transpose();
         }
-        b.row(i) = row;
     }
 }
 
@@ -61,7 +49,6 @@ Eigen::RowVector3d mouse_to_plane(double mouse_x, double mouse_y, const Eigen::M
 }
 
 void prepare_drag_session(MeshContext& context, const Eigen::Matrix4f& view_matrix) {
-    context.build_L();
     context.drag_plane_point = context.V_new.row(context.selected_vertex);
     context.drag_plane_normal = view_matrix.block<3, 3>(0, 0).row(2).cast<double>();
 
@@ -79,9 +66,10 @@ void prepare_drag_session(MeshContext& context, const Eigen::Matrix4f& view_matr
         b_indices(i) = context.selected_vertex;
         context.libigl_bc.row(i) = context.V.row(context.selected_vertex);
 
-        context.libigl_solver.energy = igl::ARAP_ENERGY_TYPE_SPOKES;
+        context.libigl_solver.energy = igl::ARAP_ENERGY_TYPE_SPOKES_AND_RIMS;
         igl::arap_precomputation(context.V, context.F, 3, b_indices, context.libigl_solver);
     }
+    else context.factorize_left_side();
     context.is_dragging = true;
 }
 
@@ -92,9 +80,16 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
         Eigen::MatrixXd b;
         for (int iter = 0; iter < context.number_of_iterations; iter++) {
             #pragma omp parallel for
-            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new, context.halfedges);
             build_b(context, b);
-            context.V_new = context.solver.solve(b);
+
+            Eigen::MatrixXd R(context.V.rows(), 3);
+            for(int i=0; i<context.V.rows(); i++) R.row(i) = (context.cells[i].rotation * context.cells[i].laplacian_vector.transpose()).transpose();
+            
+            double lambda_adjusted = context.lambda / 100.0;
+            Eigen::MatrixXd right_side = lambda_adjusted * context.L.transpose() * R + (1-lambda_adjusted) * b;
+            context.apply_constraints_to_rhs(right_side, new_handle_pos);
+            context.V_new = context.solver.solve(right_side);
             if (context.solver.info() != Eigen::Success) std::cerr << "ARAP solve failed\n";
 
         }
@@ -103,10 +98,10 @@ void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_
         igl::arap_solve(context.libigl_bc, context.libigl_solver, context.V_new);
         if (energy_flag){
             #pragma omp parallel for
-            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new, context.halfedges);
         }
         else{
-            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new);
+            for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new, context.halfedges);
         }
     }
 }

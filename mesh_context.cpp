@@ -1,6 +1,7 @@
 #include "mesh_context.h"
 #include <igl/read_triangle_mesh.h>
 #include <igl/adjacency_list.h>
+#include <igl/massmatrix.h>
 #include <iostream>
 #include <algorithm>
 #include <fstream>
@@ -17,7 +18,7 @@ bool MeshContext::load_mesh(const std::string& filepath)
     igl::adjacency_list(F, adjacency);
     V_new = V;
     C.resize(V.rows(),3);
-    C.row(0).setConstant(0.0);
+    C.col(0).setConstant(0.0);
     C.col(2).setConstant(1.0);
     anchors.clear();
     handles.clear();
@@ -29,32 +30,50 @@ bool MeshContext::load_mesh(const std::string& filepath)
     is_dragging = false;
     needs_draw = false;
 
-    precompute_angles();
     populate_cells();
+    precompute_angles();
+    precompute_voronoi();
+    build_L();
+    build_left_side();
+
     return true;
 }
 
 void MeshContext::precompute_angles()
 {
-    angles.clear();
-    for(int i=0; i<F.rows();i++)
+    halfedges.resize(3 * F.rows());
+    for (int i = 0; i < F.rows(); i++) 
     {
-        int a = F(i,0);
-        int b = F(i,1);
-        int c = F(i,2);
+        const int a = F(i, 0);
+        const int b = F(i, 1);
+        const int c = F(i, 2);
 
-        auto add_angle = [&](int x, int y, int opposite)
-        {
-            int a = std::min(x,y);
-            int b = std::max(x,y);
+        const double w_ab = cotangent(V, c, a, b);
+        const double w_bc = cotangent(V, a, b, c);
+        const double w_ca = cotangent(V, b, c, a);
 
-            angles[{a,b}].push_back(cotangent(V, opposite,x,y));
-        };
+        halfedges[3*i]   = {a, b, w_ab, w_ab * (V.row(b) - V.row(a)).transpose()};
+        halfedges[3*i+1] = {b, c, w_bc, w_bc * (V.row(c) - V.row(b)).transpose()};
+        halfedges[3*i+2] = {c, a, w_ca, w_ca * (V.row(a) - V.row(c)).transpose()};
 
-        add_angle(a,b,c);
-        add_angle(b,c,a);
-        add_angle(a,c,b);
+        for (int v : {a, b, c}) {
+            cells[v].he_indices.push_back(3*i);
+            cells[v].he_indices.push_back(3*i+1);
+            cells[v].he_indices.push_back(3*i+2);
+        }
     }
+}
+
+void MeshContext::precompute_voronoi()
+{
+    //TODO: by hand if feasable
+    Eigen::SparseMatrix<double> M;
+    igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
+    Eigen::VectorXd inverse_masses = M.diagonal().cwiseInverse();
+    inverse_masses /= inverse_masses.mean();
+    M_inv_norm.resize(V.rows(), V.rows());
+    M_inv_norm = inverse_masses.asDiagonal();
+    M_inv_norm.makeCompressed();
 }
 
 void MeshContext::populate_cells()
@@ -62,7 +81,7 @@ void MeshContext::populate_cells()
     //auto start = std::chrono::high_resolution_clock::now();
     cells.clear();
     cells.reserve(V.rows());
-    for(int i=0;i<V.rows();i++) cells.emplace_back(i, V, adjacency, angles);
+    for(int i=0;i<V.rows();i++) cells.emplace_back(i, adjacency);
     //auto end = std::chrono::high_resolution_clock::now();
     //std::chrono::duration<double> elapsed = end - start; 
     //std::cout << "Time: " << elapsed.count() << " seconds\n";
@@ -71,27 +90,85 @@ void MeshContext::populate_cells()
 void MeshContext::build_L()
 {
     std::vector<Eigen::Triplet<double>> triplets;
-    for (int i = 0; i < V.rows(); i++) {
-        if (i == selected_vertex || vertex_type[i] == 2) { 
-            triplets.emplace_back(i, i, 1.0);
-            continue;  
-        }
+    for (const HalfEdge& he : halfedges) {
+        int i = he.from;
+        int j = he.to;
+        double w = 0.5 * he.weight;
 
-        double val = 0.0;
-        int n = 0;
-        for (int j : adjacency[i]) {
-            double w = cells[i].weights[n];
-            val += w; 
-            if (j != selected_vertex && vertex_type[j] != 2) triplets.emplace_back(i, j, -w);   
-            n++;
-        }
-        triplets.emplace_back(i, i, val);
+        triplets.emplace_back(i, i,  w);
+        triplets.emplace_back(j, j,  w);
+        triplets.emplace_back(i, j, -w);
+        triplets.emplace_back(j, i, -w);
     }
-    
     L.setFromTriplets(triplets.begin(), triplets.end());
     L.makeCompressed();
-    solver.compute(L);
+
+    Eigen::MatrixXd vectors = M_inv_norm * L * V;
+    for(int i =0; i<V.rows(); i++) cells[i].laplacian_vector = vectors.row(i);
+}
+
+void MeshContext::build_left_side()
+{
+    double lambda_adjusted = lambda / 100.0;
+    left_side_no_constraints = lambda_adjusted * L.transpose() * M_inv_norm * L + (1.0-lambda_adjusted) * L;
+    left_side_no_constraints.prune(0.0);
+    left_side_no_constraints.makeCompressed();
+}
+
+void MeshContext::factorize_left_side()
+{
+    const int n = V.rows();
+    std::vector<char> fixed(n, false);
+
+    for (int a : anchors) fixed[a] = true;
+    if (selected_vertex >= 0) fixed[selected_vertex] = true;
+
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.reserve(left_side_no_constraints.nonZeros());
+
+    for (int k = 0; k < left_side_no_constraints.outerSize(); k++)
+    {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(left_side_no_constraints, k); it; ++it)
+        {
+            const int i = it.row();
+            const int j = it.col();
+            if (!fixed[i] && !fixed[j]) triplets.emplace_back(i, j, it.value());
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        if (fixed[i]) triplets.emplace_back(i, i, 1.0);
+    }
+
+    left_side.resize(n, n);
+    left_side.setFromTriplets(triplets.begin(), triplets.end());
+    left_side.makeCompressed();
+
+    solver.compute(left_side);
     if (solver.info() != Eigen::Success) std::cerr << "ARAP factorization failed\n";
+}
+
+void MeshContext::apply_constraints_to_rhs(Eigen::MatrixXd& rhs, const Eigen::RowVector3d& handle_target) const
+{
+    const int n = V.rows();
+    std::vector<char> fixed(n, false);
+
+    for (int a : anchors) fixed[a] = true;
+    if (selected_vertex >= 0) fixed[selected_vertex] = true;
+
+    auto eliminate_constraint = [&](int c, const Eigen::RowVector3d& target)
+    {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(left_side_no_constraints, c); it; ++it)
+        {
+            const int i = it.row();
+            if (!fixed[i]) rhs.row(i) -= it.value() * target;
+        }
+    };
+
+    for (int a : anchors) eliminate_constraint(a, V.row(a));
+    eliminate_constraint(selected_vertex, handle_target);
+    for (int a : anchors) rhs.row(a) = V.row(a);
+    rhs.row(selected_vertex) = handle_target;
 }
 
 void MeshContext::change_vertex_type(int i, int8_t new_type) {
@@ -114,6 +191,8 @@ void MeshContext::reset_vertices() {
 }
 
 void MeshContext::reset_mesh() {
+    C.col(0).setConstant(0.0);
+    C.col(2).setConstant(1.0);
     V_new = V;
     mode = 0;
     selected_vertex = -1;
@@ -128,15 +207,14 @@ double MeshContext::calculate_energy() {
     C.col(2).setConstant(1.0);
     for (const Cell& c : cells) {
         C(c.point_idx,0) = 0.0;
-        int i = 0;
-        for (int n : adjacency[c.point_idx]) {
-            Eigen::Vector3d e1 = (V_new.row(c.point_idx) - V_new.row(n)).transpose();
-            Eigen::Vector3d e2 = c.rotation * (V.row(c.point_idx) - V.row(n)).transpose();
+        for (int he_index : c.he_indices) {
+            HalfEdge& he = halfedges[he_index];
+            Eigen::Vector3d e1 = (V_new.row(he.to) - V_new.row(he.from)).transpose();
+            Eigen::Vector3d e2 = c.rotation * (V.row(he.to) - V.row(he.from)).transpose();
             Eigen::Vector3d diff = e1 - e2;
-            double local_energy = c.weights[i] * diff.squaredNorm();
-            C(c.point_idx,0) += local_energy;
-            E += local_energy;
-            i++;
+            double temp_energy = (0.5 * he.weight/3.0)*diff.squaredNorm();
+            C(c.point_idx,0) += temp_energy;
+            E += temp_energy;
         }
         C(c.point_idx,0) = std::clamp(C(c.point_idx,0)*energy_color_coeff, 0.0, 1.0);
         C(c.point_idx,2) -= C(c.point_idx,0);
