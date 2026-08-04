@@ -52,7 +52,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             Eigen::RowVector3d target_pos = mouse_to_plane(context.mouse_x, context.mouse_y, viewer.core().view,
                                                            viewer.core().proj, viewer.core().viewport,
                                                            context.drag_plane_point, context.drag_plane_normal);
-            solve_arap_step(context, target_pos, shows_energy);
+            solve_arap_step(context, target_pos);
             if (shows_energy)
             {
                 #pragma omp parallel for
@@ -158,7 +158,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
                 Eigen::RowVector3d target = context.V_new.row(context.selected_vertex);
 
                 context.factorize_left_side();
-                solve_arap_step(context, target, shows_energy);
+                solve_arap_step(context, target);
                 
                 #pragma omp parallel for
                 for(int i = 0; i < context.V.rows(); i++)

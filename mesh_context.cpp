@@ -193,6 +193,7 @@ void MeshContext::reset_vertices() {
     handles.clear();
     anchors.clear();
     vertex_type.assign(V.rows(), 0);
+    last_selected = -2;
 }
 
 void MeshContext::reset_mesh() {
@@ -252,6 +253,7 @@ void MeshContext::load_config()
     }
     if(!file) return;
 
+    last_selected = -2;
     vertex_type.assign(V.rows(), 0);
     anchors.clear();
     handles.clear();

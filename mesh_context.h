@@ -5,6 +5,7 @@
 #include <Eigen/SparseCholesky>
 #include <igl/arap.h>
 #include <vector>
+#include <array>
 #include <map>
 #include <string>
 #include <cstdint>

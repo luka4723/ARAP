@@ -73,7 +73,7 @@ void prepare_drag_session(MeshContext& context, const Eigen::Matrix4f& view_matr
     context.is_dragging = true;
 }
 
-void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos, bool energy_flag) {
+void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos) {
     context.V_new.row(context.selected_vertex) = new_handle_pos;
 
     if (context.algorithm == 0) {
