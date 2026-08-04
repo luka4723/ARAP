@@ -20,6 +20,7 @@ struct MeshContext {
     Eigen::MatrixXi F;
     Eigen::MatrixXd C;
     Eigen::SparseMatrix<double> M_inv_norm;
+    Eigen::VectorXd normalized_masses;
     
     std::vector<std::vector<int>> adjacency;
     std::vector<HalfEdge> halfedges;
@@ -38,6 +39,7 @@ struct MeshContext {
 
     int mode = 0; 
     int selected_vertex = -1;
+    int last_selected = -2;
     int number_of_iterations = 5;
     int energy_color_coeff = 50;
     int lambda = 0  ;
@@ -63,5 +65,5 @@ struct MeshContext {
     void change_vertex_type(int i, int8_t new_type);
     void reset_vertices();
     void reset_mesh();
-    double calculate_energy();
+    std::array<double,3> calculate_energy();
 };

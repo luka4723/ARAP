@@ -8,8 +8,7 @@ int frame_count = 0;
 double last_time = 0.0;
 double current_fps = 0.0;
 bool shows_energy = true;
-double energy = 0.0;
-int last_selected = -2;
+std::array<double,3> energy = {0.0, 0.0, 0.0};
 
 void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImGuiMenu& menu,
                 MeshContext& context)
@@ -70,9 +69,9 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
 
     viewer.callback_mouse_up = [&context](igl::opengl::glfw::Viewer& /*viewer*/, int button, int modifier) {
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if(context.is_dragging && context.selected_vertex >= 0) context.last_selected = context.selected_vertex;
             context.is_dragging = false;
             context.needs_draw = false;
-            last_selected = context.selected_vertex;
             context.selected_vertex = -1;
         }
         return false;
@@ -153,13 +152,19 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         if (ImGui::SliderInt("Smoothness factor", &context.lambda, 0, 99)) 
         {
             context.build_left_side();
-            if (context.algorithm == 0 && last_selected >= 0)
+            if (context.algorithm == 0 && context.last_selected >= 0)
             {
-                context.selected_vertex = last_selected;
+                context.selected_vertex = context.last_selected;
                 Eigen::RowVector3d target = context.V_new.row(context.selected_vertex);
 
                 context.factorize_left_side();
                 solve_arap_step(context, target, shows_energy);
+                
+                #pragma omp parallel for
+                for(int i = 0; i < context.V.rows(); i++)
+                context.cells[i].find_rotation(context.V_new, context.halfedges);
+
+                energy = context.calculate_energy();
 
                 viewer.data().set_vertices(context.V_new);
                 draw_vertices(viewer, context, false, true, true);
@@ -173,11 +178,15 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         ImGui::Checkbox("Show energy", &shows_energy);
         if (ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100)) energy = context.calculate_energy();
         if(shows_energy) {
-            ImGui::Text("Energy %.2f", energy);
+            ImGui::Text("ARAP Energy %.2f", energy[0]);
+            ImGui::Text("Smooth Energy %.2f", energy[1]);   
+            ImGui::Text("Total Energy %.2f", energy[2]);   
             viewer.data().set_colors(context.C);
         }
         else {
-            ImGui::Text("FPS: N/A");
+            ImGui::Text("ARAP Energy: N/A");
+            ImGui::Text("Smooth Energy: N/A");
+            ImGui::Text("Total Energy: N/A");
             context.C.col(0).setConstant(0.0);
             context.C.col(2).setConstant(1.0);
             viewer.data().set_colors(context.C);

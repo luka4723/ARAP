@@ -27,6 +27,7 @@ bool MeshContext::load_mesh(const std::string& filepath)
     mode = 0;
 
     selected_vertex = -1;
+    last_selected = -2;
     is_dragging = false;
     needs_draw = false;
 
@@ -71,6 +72,7 @@ void MeshContext::precompute_voronoi()
     igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
     Eigen::VectorXd inverse_masses = M.diagonal().cwiseInverse();
     inverse_masses /= inverse_masses.mean();
+    normalized_masses = inverse_masses.cwiseInverse();
     M_inv_norm.resize(V.rows(), V.rows());
     M_inv_norm = inverse_masses.asDiagonal();
     M_inv_norm.makeCompressed();
@@ -174,7 +176,10 @@ void MeshContext::apply_constraints_to_rhs(Eigen::MatrixXd& rhs, const Eigen::Ro
 void MeshContext::change_vertex_type(int i, int8_t new_type) {
     if (vertex_type[i] == new_type) return;
     switch (vertex_type[i]) {
-        case 1: handles.erase(std::remove(handles.begin(), handles.end(), i), handles.end()); break;
+        case 1: 
+            handles.erase(std::remove(handles.begin(), handles.end(), i), handles.end());
+            if(last_selected == i) last_selected = -2;
+            break;
         case 2: anchors.erase(std::remove(anchors.begin(), anchors.end(), i), anchors.end()); break;
     }
     vertex_type[i] = new_type;
@@ -201,24 +206,37 @@ void MeshContext::reset_mesh() {
     needs_draw = false;
 }
 
-double MeshContext::calculate_energy() {
-    double E = 0.0;
+ std::array<double,3> MeshContext::calculate_energy() {
+    std::array<double, 3> E = {0.0, 0.0, 0.0};
+    double lambda_adjusted = lambda / 100.0;
     C.col(0).setConstant(0.0);
     C.col(2).setConstant(1.0);
+    Eigen::MatrixXd deformed_laplacians = M_inv_norm * L * V_new;
     for (const Cell& c : cells) {
-        C(c.point_idx,0) = 0.0;
+        double arap_e = 0.0;
         for (int he_index : c.he_indices) {
             HalfEdge& he = halfedges[he_index];
             Eigen::Vector3d e1 = (V_new.row(he.to) - V_new.row(he.from)).transpose();
             Eigen::Vector3d e2 = c.rotation * (V.row(he.to) - V.row(he.from)).transpose();
             Eigen::Vector3d diff = e1 - e2;
             double temp_energy = (0.5 * he.weight/3.0)*diff.squaredNorm();
-            C(c.point_idx,0) += temp_energy;
-            E += temp_energy;
+            arap_e += temp_energy;
         }
-        C(c.point_idx,0) = std::clamp(C(c.point_idx,0)*energy_color_coeff, 0.0, 1.0);
+
+        E[0] += arap_e;
+
+        Eigen::Vector3d deformed_laplacian = deformed_laplacians.row(c.point_idx).transpose();
+        Eigen::Vector3d rotated_original_laplacian = c.rotation * c.laplacian_vector.transpose();
+        Eigen::Vector3d laplacian_difference = deformed_laplacian - rotated_original_laplacian;
+        double smooth_arap_e = normalized_masses(c.point_idx) * laplacian_difference.squaredNorm();
+
+        E[1] += smooth_arap_e; 
+
+        double local_e = (1.0 - lambda_adjusted) * arap_e + lambda_adjusted * smooth_arap_e;
+        C(c.point_idx,0) = std::clamp(local_e * energy_color_coeff, 0.0, 1.0);
         C(c.point_idx,2) -= C(c.point_idx,0);
     }
+    E[2] = (1.0 - lambda_adjusted) * E[0] + lambda_adjusted * E[1];
     return E;
 }
 
