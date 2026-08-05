@@ -1,5 +1,6 @@
 #include "solver.h"
 #include <igl/unproject.h>
+#include <chrono>
 
 void build_b(MeshContext& context, Eigen::MatrixXd& b)
 {
@@ -73,23 +74,35 @@ void prepare_drag_session(MeshContext& context, const Eigen::Matrix4f& view_matr
     context.is_dragging = true;
 }
 
-void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos) {
+void solve_arap_step(MeshContext& context, const Eigen::RowVector3d& new_handle_pos, BenchmarkDurations* durations) {
+    using Clock = std::chrono::steady_clock;
     context.V_new.row(context.selected_vertex) = new_handle_pos;
 
     if (context.algorithm == 0) {
         Eigen::MatrixXd b;
         for (int iter = 0; iter < context.number_of_iterations; iter++) {
+
+            auto start = Clock::now();
             #pragma omp parallel for
             for (int i = 0; i < context.V.rows(); i++) context.cells[i].find_rotation(context.V_new, context.halfedges);
+            if (durations) durations->rotations += Clock::now() - start;
+
+            start = Clock::now();
             build_b(context, b);
 
             Eigen::MatrixXd R(context.V.rows(), 3);
             for(int i=0; i<context.V.rows(); i++) R.row(i) = (context.cells[i].rotation * context.cells[i].laplacian_vector.transpose()).transpose();
             
             double lambda_adjusted = context.lambda / 100.0;
+
             Eigen::MatrixXd right_side = lambda_adjusted * context.L.transpose() * R + (1-lambda_adjusted) * b;
             context.apply_constraints_to_rhs(right_side, new_handle_pos);
+            if (durations) durations->rhs += Clock::now() - start;
+
+            start = Clock::now();
             context.V_new = context.solver.solve(right_side);
+            if (durations) durations->linear_solve += Clock::now() - start;
+
             if (context.solver.info() != Eigen::Success) std::cerr << "ARAP solve failed\n";
 
         }

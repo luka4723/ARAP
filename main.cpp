@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 {
   MeshContext context;
 
-  if(!context.load_mesh("meshes/armadillo_1k.off")) return EXIT_FAILURE;
+  if(!context.load_mesh("meshes/cactus_highres.off")) return EXIT_FAILURE;
 
   igl::opengl::glfw::Viewer viewer;
   viewer.data().point_size = 10;

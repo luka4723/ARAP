@@ -41,7 +41,7 @@ struct MeshContext {
     int mode = 0; 
     int selected_vertex = -1;
     int last_selected = -2;
-    int number_of_iterations = 5;
+    int number_of_iterations = 10;
     int energy_color_coeff = 50;
     int lambda = 0  ;
     int algorithm = 0; // 0: Custom ARAP, 1: libigl ARAP
@@ -52,6 +52,8 @@ struct MeshContext {
 
     Eigen::Vector3d drag_plane_point;
     Eigen::Vector3d drag_plane_normal;
+
+    std::chrono::duration<double> elapsed;
 
     bool load_mesh(const std::string& filepath);
     void load_config();

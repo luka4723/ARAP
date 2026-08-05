@@ -5,7 +5,7 @@
 void draw_vertices(igl::opengl::glfw::Viewer& viewer, const MeshContext& context, bool draw_available, bool draw_handles, bool draw_anchors)
 { 
   viewer.data().clear_points();
-  if(draw_available){
+  if(draw_available && context.V.rows() < 2000){
     for(int i = 0; i<context.vertex_type.size();i++){
       if (context.vertex_type[i]==0) viewer.data().add_points(context.V_new.row(i),Eigen::RowVector3d(0,1,0));
     }

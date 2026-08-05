@@ -31,12 +31,16 @@ bool MeshContext::load_mesh(const std::string& filepath)
     is_dragging = false;
     needs_draw = false;
 
+    auto start = std::chrono::high_resolution_clock::now();
     populate_cells();
     precompute_angles();
     precompute_voronoi();
     build_L();
+    auto end = std::chrono::high_resolution_clock::now();
+    elapsed = end - start; 
+   
     build_left_side();
-
+    omp_set_dynamic(1);
     return true;
 }
 
@@ -67,7 +71,6 @@ void MeshContext::precompute_angles()
 
 void MeshContext::precompute_voronoi()
 {
-    //TODO: by hand if feasable
     Eigen::SparseMatrix<double> M;
     igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
     Eigen::VectorXd inverse_masses = M.diagonal().cwiseInverse();
@@ -80,13 +83,9 @@ void MeshContext::precompute_voronoi()
 
 void MeshContext::populate_cells()
 {
-    //auto start = std::chrono::high_resolution_clock::now();
     cells.clear();
     cells.reserve(V.rows());
     for(int i=0;i<V.rows();i++) cells.emplace_back(i, adjacency);
-    //auto end = std::chrono::high_resolution_clock::now();
-    //std::chrono::duration<double> elapsed = end - start; 
-    //std::cout << "Time: " << elapsed.count() << " seconds\n";
 }
 
 void MeshContext::build_L()
