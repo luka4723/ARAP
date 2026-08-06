@@ -56,7 +56,7 @@ int point_picker(const igl::opengl::glfw::Viewer& viewer, const MeshContext& con
   return selected;
 }
 
-void point_manager(MeshContext& context, igl::opengl::glfw::Viewer& viewer, int button, int modifier)
+void point_manager(MeshContext& context, igl::opengl::glfw::Viewer& viewer)
 {
   int selected = point_picker(viewer, context);
 

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
+#include <omp.h>
 
 bool MeshContext::load_mesh(const std::string& filepath) 
 {
@@ -18,8 +20,8 @@ bool MeshContext::load_mesh(const std::string& filepath)
     igl::adjacency_list(F, adjacency);
     V_new = V;
     C.resize(V.rows(),3);
-    C.col(0).setConstant(0.0);
-    C.col(2).setConstant(1.0);
+    C.setZero();
+    C.col(2).setOnes();
     anchors.clear();
     handles.clear();
     vertex_type.assign(V.rows(), 0);
@@ -196,8 +198,8 @@ void MeshContext::reset_vertices() {
 }
 
 void MeshContext::reset_mesh() {
-    C.col(0).setConstant(0.0);
-    C.col(2).setConstant(1.0);
+    C.setZero();
+    C.col(2).setOnes();
     V_new = V;
     mode = 0;
     selected_vertex = -1;
@@ -209,8 +211,8 @@ void MeshContext::reset_mesh() {
  std::array<double,3> MeshContext::calculate_energy() {
     std::array<double, 3> E = {0.0, 0.0, 0.0};
     double lambda_adjusted = lambda / 100.0;
-    C.col(0).setConstant(0.0);
-    C.col(2).setConstant(1.0);
+    C.setZero();
+    C.col(2).setOnes();
     Eigen::MatrixXd deformed_laplacians = M_inv_norm * L * V_new;
     for (const Cell& c : cells) {
         double arap_e = 0.0;

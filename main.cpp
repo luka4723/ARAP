@@ -2,10 +2,9 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/opengl/glfw/imgui/ImGuiPlugin.h>
 #include <igl/opengl/glfw/imgui/ImGuiMenu.h>
-#include <iostream>
-
 #include "mesh_context.h"
 #include "menu.h"
+#include <cstdlib>
 
 int main(int argc, char *argv[])
 {

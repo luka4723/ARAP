@@ -2,6 +2,7 @@
 
 #include <Eigen/Core>
 #include "mesh_context.h"
+#include <chrono>
 
 struct BenchmarkDurations {
     std::chrono::duration<double> rotations{};

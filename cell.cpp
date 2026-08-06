@@ -1,16 +1,15 @@
 #include "cell.h"
 #include <igl/polar_svd3x3.h>
+#include <cstddef>
+#include <Eigen/Geometry>
 
-
-Cell::Cell(int point_idx, const std::vector<std::vector<int>>& adjacency) : point_idx(point_idx),neighbors(adjacency[point_idx])
+Cell::Cell(int point_idx, const std::vector<std::vector<int>>& adjacency) : point_idx(point_idx)
 {
-    he_indices.reserve(3 * neighbors.size());
+    he_indices.reserve(3 * adjacency[point_idx].size());
 }
 
 void Cell::find_rotation(const Eigen::MatrixXd& V_new, const std::vector<HalfEdge>& halfedges){
     Eigen::Matrix3d S = Eigen::Matrix3d::Zero();
-    Eigen::Vector3d center_of_cell = V_new.row(point_idx);
-    Eigen::Vector3d e_prim;
 
     for (std::size_t k = 0; k < he_indices.size(); k += 3) {
         const HalfEdge& he0 = halfedges[he_indices[k]];

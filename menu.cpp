@@ -8,6 +8,10 @@
 #include <filesystem>
 #include <iomanip>
 #include <locale>
+#include <array>
+#include <iostream>
+#include <omp.h>
+#include <imgui.h>
 
 bool shows_energy = true;
 std::array<double,3> energy = {0.0, 0.0, 0.0};
@@ -15,6 +19,7 @@ std::array<double,3> energy = {0.0, 0.0, 0.0};
 BenchmarkDurations benchmark_durations;
 bool benchmark_flag = false;
 int benchmark_step = 0;
+bool parallel_flag = false;
 Eigen::RowVector3d increment;
 std::chrono::duration<double> arap_step_accumulation{};
 std::chrono::duration<double> left_side{};
@@ -36,7 +41,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
                     prepare_drag_session(context, viewer.core().view);
                 else context.selected_vertex = -1;
             }
-            else point_manager(context, viewer, button, modifier);
+            else point_manager(context, viewer);
         }
         return false;
     };
@@ -112,7 +117,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
 
             if (write_header) {
                 file
-                    << "mesh,algorithm,lambda,"
+                    << "mesh,algorithm,cores,lambda,"
                     << "steps,iterations,"
                     << "mesh_precomputation_ms,left_side_ms,setup_ms,"
                     << "rotations_ms,rhs_ms,linear_solve_ms,"
@@ -125,6 +130,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             file
                 << context.name << ','
                 << (context.algorithm == 0 ? "custom" : "libigl") << ','
+                << (context.algorithm == 0 && parallel_flag == true ? '8' : '1') << ','
                 << context.lambda / 100.0 << ','
                 << 50 << ','
                 << context.number_of_iterations << ',';
@@ -224,6 +230,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             context.reset_vertices();
             draw_vertices(viewer,context,false,false,false);
         }
+        ImGui::SameLine();
         if(ImGui::Button("Reset Mesh"))
         {
             context.reset_mesh();
@@ -231,6 +238,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             draw_vertices(viewer,context,false,true,true);
         }
         if(ImGui::Button("Save Vertices"))context.save_config();
+        ImGui::SameLine();
         if(ImGui::Button("Load Config")){
             context.load_config();
             draw_vertices(viewer, context, false, true, true);
@@ -262,6 +270,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             }
         }
         if (ImGui::RadioButton("Custom ARAP", context.algorithm == 0)) context.algorithm = 0;
+        ImGui::SameLine();
         if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Checkbox("Show energy", &shows_energy);
         if (ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100)) energy = context.calculate_energy();
@@ -275,16 +284,19 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             ImGui::Text("ARAP Energy: N/A");
             ImGui::Text("Smooth Energy: N/A");
             ImGui::Text("Total Energy: N/A");
-            context.C.col(0).setConstant(0.0);
-            context.C.col(2).setConstant(1.0);
+            context.C.setZero();
+            context.C.col(2).setOnes();
             viewer.data().set_colors(context.C);
         }
+        ImGui::Separator();
+        ImGui::Checkbox("Parallel benchmark?", &parallel_flag);
         if(ImGui::Button("Start benchmark")){
             using Clock = std::chrono::steady_clock;
             context.reset_mesh();
             context.reset_vertices();
             omp_set_dynamic(0);
-            omp_set_num_threads(8);
+            if(parallel_flag) omp_set_num_threads(8);
+            else omp_set_num_threads(1);
             benchmark_step = 0;
             benchmark_durations.reset();
             arap_step_accumulation = {};
@@ -320,7 +332,8 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
                 std::cout << "No benchmark was set for this mesh. \n";
                 return;
             }
-            
+            for(int i:context.anchors) context.vertex_type[i] = 2;
+            for(int i:context.handles) context.vertex_type[i] = 1;
             increment = (to - from).transpose() / 50.0;
 
 

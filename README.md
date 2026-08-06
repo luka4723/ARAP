@@ -67,17 +67,26 @@ For a vertex $v$, its local region contains every directed edge belonging to a t
 
 Each triangle contributes all three of its half-edges to the local region of each of its vertices.
 
-The weight of a half-edge is computed from the cotangent of the opposite triangle angle:
+For a half-edge $e$, let
 
 $$
-w_e=\cot(\alpha_e).
+c_e=\cot(\alpha_e),
 $$
+
+where $\alpha_e$ is the angle opposite the half-edge.
 
 The `HalfEdge` structure stores:
 
-* the source and destination vertex;
-* the cotangent weight;
-* the original weighted edge vector.
+* the source and destination vertices;
+* the raw cotangent coefficient $c_e$;
+* the original weighted edge vector $c_e\mathbf e$.
+
+The half-cotangent coefficient used to assemble the Laplacian, global right-hand side, and ARAP energy is
+
+$$
+w_e=\frac{c_e}{2}
+=\frac{1}{2}\cot(\alpha_e).
+$$
 
 This information is precomputed whenever a mesh is loaded.
 
@@ -85,24 +94,24 @@ This information is precomputed whenever a mesh is loaded.
 
 The positive semidefinite cotangent Laplacian is assembled explicitly from triangle half-edges.
 
-For each half-edge $e=(i,j)$, the corresponding triangle contributes
+For each half-edge $e=(i,j)$, the corresponding triangle contributes its half-cotangent coefficient
 
 $$
-w=\frac{1}{2}\cot(\alpha_e)
+w_e=\frac{1}{2}\cot(\alpha_e)
 $$
 
 to the following entries:
 
 $$
-L_{ii}\mathrel{+=}w,\qquad
-L_{jj}\mathrel{+=}w,\qquad
-L_{ij}\mathrel{-=}w,\qquad
-L_{ji}\mathrel{-=}w.
+L_{ii}\mathrel{+}=w_e,\qquad
+L_{jj}\mathrel{+}=w_e,\qquad
+L_{ij}\mathrel{-}=w_e,\qquad
+L_{ji}\mathrel{-}=w_e.
 $$
 
 Interior edges receive contributions from both adjacent triangles, while boundary edges receive one contribution.
 
-Cotangent values are calculated directly from the original vertex positions. Negative cotangent weights are not clamped.
+Cotangent values are calculated directly from the original vertex positions. Negative cotangent coefficients are not clamped.
 
 ### Local step
 
@@ -111,14 +120,16 @@ For each vertex $v$, a covariance matrix is constructed over its spokes-and-rims
 $$
 S_v=
 \sum_{e\in\mathcal N_v}
-w_e\mathbf e{\mathbf e'}^T
+c_e\mathbf e{\mathbf e'}^T,
 $$
 
-where $\mathbf e$ is an original edge and $\mathbf e'$ is its current deformed version.
+where $\mathbf e$ is an original edge, $\mathbf e'$ is its current deformed version, and $c_e=\cot(\alpha_e)$ is the raw cotangent coefficient.
+
+Using $w_e=c_e/2$ instead would scale the entire covariance matrix by the same positive constant and would therefore produce the same fitted rotation.
 
 The closest rotation $R_v\in SO(3)$ is recovered using polar SVD. Rotation fitting is independent for every vertex, so this part of the local step is parallelized with OpenMP.
 
-Only the mesh edges are used during rotation fitting. The Laplacian vectors introduced by the smooth term are not included in the covariance matrix.
+Only mesh edges are used during rotation fitting. The Laplacian vectors introduced by the smooth term are not included in the covariance matrix.
 
 ### Standard ARAP global step
 
@@ -128,11 +139,16 @@ $$
 E_{\mathrm{ARAP}}=
 \sum_v
 \sum_{e\in\mathcal N_v}
-\frac{1}{3}
-\frac{w_e}{2}
-\left|
+\frac{w_e}{3}
+\left\|
 \mathbf e'-R_v\mathbf e
-\right|^2.
+\right\|^2,
+$$
+
+where
+
+$$
+w_e=\frac{1}{2}\cot(\alpha_e).
 $$
 
 The factor $1/3$ compensates for the overlap of spokes-and-rims neighborhoods.
@@ -270,7 +286,7 @@ Energy evaluation and color updates can be disabled through the interface when t
 The application initially loads:
 
 ```text
-meshes/armadillo_1k.off
+meshes/cactus_highres.off
 ```
 
 Another triangle mesh can be selected at runtime through the file dialog.
@@ -449,7 +465,7 @@ For libigl, `setup` is the time spent in `igl::arap_precomputation` and `deforma
 
 ### Ten-iteration comparison
 
-All timing values in the following tables are medians in milliseconds. Energy values are dimensionless.
+All timing values in the following tables are medians in milliseconds. Energy values are reported in squared mesh-coordinate units and should not be compared across differently scaled meshes.
 
 #### Cactus
 
@@ -545,7 +561,9 @@ Total energy values should not be compared directly across different values of $
 ## References
 
 * Olga Sorkine-Hornung and Marc Alexa. [As-Rigid-As-Possible Surface Modeling](https://igl.ethz.ch/projects/ARAP/index.php). Symposium on Geometry Processing, 2007.
-* Annika Oehri, Philipp Herholz, and Olga Sorkine-Hornung. [Higher-Order Continuity for Smooth As-Rigid-As-Possible Shape Modeling](https://igl.ethz.ch/projects/smootharap/), 2025.
+* Isaac Chao, Ulrich Pinkall, Patrick Sanan, and Peter Schröder. [A Simple Geometric Model for Elastic Deformations](https://doi.org/10.1145/1778765.1778775). ACM Transactions on Graphics, 29(4), 2010.
+* Alec Jacobson, Ladislav Kavan, Ilya Baran, Jovan Popović, and Olga Sorkine-Hornung. [Fast Automatic Skinning Transformations](https://igl.ethz.ch/projects/fast/). ACM Transactions on Graphics, 31(4), 2012.
+* Annika Oehri, Philipp Herholz, and Olga Sorkine-Hornung. [Higher-Order Continuity for Smooth As-Rigid-As-Possible Shape Modeling](https://igl.ethz.ch/projects/smootharap/). Journal of Computer Graphics Techniques, 14(1), 2025.
 * [libigl](https://libigl.github.io/)
 
 ## Acknowledgements

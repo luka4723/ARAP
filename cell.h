@@ -1,10 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <map>
 #include <vector>
-#include <utility>
-
 
 struct HalfEdge {
     int from;
@@ -15,7 +12,6 @@ struct HalfEdge {
 
 struct Cell {
     int point_idx;
-    std::vector<int> neighbors;
     std::vector<int> he_indices;
     Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
     Eigen::RowVector3d laplacian_vector;
@@ -26,4 +22,3 @@ struct Cell {
 };
 
 double cotangent(const Eigen::MatrixXd& V, int a, int b, int c);
-

@@ -1,6 +1,8 @@
 #include "solver.h"
 #include <igl/unproject.h>
 #include <chrono>
+#include <cmath>
+#include <iostream>
 
 void build_b(MeshContext& context, Eigen::MatrixXd& b)
 {
