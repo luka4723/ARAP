@@ -8,7 +8,44 @@ This is a learning-oriented implementation of existing methods rather than a pro
 
 `libigl` is used for visualization, mesh loading, Voronoi mass matrix construction, polar SVD, and as a reference ARAP implementation. It is not used to assemble or solve the custom ARAP formulation.
 
-<!-- TODO: Add a GIF comparing standard ARAP and Smooth ARAP deformation. -->
+<p align="center">
+  <img
+    src="media/smooth_vs_regular_2.png"
+    alt="Comparison of standard ARAP and Smooth ARAP deformation on the Cactus mesh"
+    width="900">
+</p>
+
+<p align="center">
+  <em>
+    Standard ARAP (λ = 0.00) and Smooth ARAP (λ = 0.85) under the same positional constraints and handle displacement.
+  </em>
+</p>
+
+<p align="center">
+  <img
+    src="media/smooth_vs_regular.png"
+    alt="Comparison of point-handle deformation with standard ARAP and Smooth ARAP"
+    width="900">
+</p>
+
+<p align="center">
+  <em>
+    Smooth ARAP distributes the influence of an isolated point handle over a wider region, reducing the localized spike produced by standard ARAP.
+  </em>
+</p>
+
+<p align="center">
+  <img
+    src="media/deformation_heatmap.gif"
+    alt="Per-vertex energy visualization during interactive deformation"
+    width="800">
+</p>
+
+<p align="center">
+  <em>
+    Per-vertex weighted energy during interactive deformation. Blue indicates lower local energy, while red indicates higher local energy.
+  </em>
+</p>
 
 ## Current status
 
