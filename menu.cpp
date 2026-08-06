@@ -186,6 +186,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             if (ImGuiFileDialog::Instance()->IsOk())
             {
                 std::string file = ImGuiFileDialog::Instance()->GetFilePathName();
+                energy = {0.0, 0.0, 0.0};
                 context.load_mesh(file);
                 viewer.data().clear();
                 viewer.data().set_mesh(context.V_new, context.F);
@@ -235,6 +236,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         ImGui::SameLine();
         if(ImGui::Button("Reset Mesh"))
         {
+            energy = {0.0, 0.0, 0.0};
             context.reset_mesh();
             viewer.data().set_vertices(context.V_new);
             draw_vertices(viewer,context,false,true,true);
@@ -275,7 +277,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
         ImGui::SameLine();
         if (ImGui::RadioButton("libigl ARAP", context.algorithm == 1)) context.algorithm = 1;
         ImGui::Checkbox("Show energy", &shows_energy);
-        if (ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100)) energy = context.calculate_energy();
+        if (ImGui::SliderInt("Color factor", &context.energy_color_coeff, 1, 100));
         if(shows_energy) {
             ImGui::Text("ARAP Energy %.2f", energy[0]);
             ImGui::Text("Smooth Energy %.2f", energy[1]);   
