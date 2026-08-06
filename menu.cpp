@@ -19,7 +19,7 @@ std::array<double,3> energy = {0.0, 0.0, 0.0};
 BenchmarkDurations benchmark_durations;
 bool benchmark_flag = false;
 int benchmark_step = 0;
-bool parallel_flag = false;
+bool parallel_flag = true;
 Eigen::RowVector3d increment;
 std::chrono::duration<double> arap_step_accumulation{};
 std::chrono::duration<double> left_side{};
@@ -92,6 +92,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             context.last_selected = context.selected_vertex;
             context.is_dragging = false;
             context.selected_vertex = -1;
+            omp_set_num_threads(8);
             benchmark_flag = false;
 
             #pragma omp parallel for
@@ -117,7 +118,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
 
             if (write_header) {
                 file
-                    << "mesh,algorithm,cores,lambda,"
+                    << "mesh,algorithm,threads,lambda,"
                     << "steps,iterations,"
                     << "mesh_precomputation_ms,left_side_ms,setup_ms,"
                     << "rotations_ms,rhs_ms,linear_solve_ms,"
@@ -130,8 +131,8 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             file
                 << context.name << ','
                 << (context.algorithm == 0 ? "custom" : "libigl") << ','
-                << (context.algorithm == 0 && parallel_flag == true ? '8' : '1') << ','
-                << context.lambda / 100.0 << ','
+                << (context.algorithm == 0 && parallel_flag == true ? 8 : 1) << ','
+                << (context.algorithm == 0 ? (context.lambda / 100.0) : 0.0) << ','
                 << 50 << ','
                 << context.number_of_iterations << ',';
             if (context.algorithm == 0) {
@@ -169,6 +170,7 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
     };
     menu.callback_draw_viewer_menu = [&context, &viewer]()
     {
+
         if (ImGui::Button("Open Mesh"))
         {
             ImGuiFileDialog::Instance()->OpenDialog(
@@ -284,9 +286,9 @@ void setup_menu(igl::opengl::glfw::Viewer& viewer, igl::opengl::glfw::imgui::ImG
             ImGui::Text("ARAP Energy: N/A");
             ImGui::Text("Smooth Energy: N/A");
             ImGui::Text("Total Energy: N/A");
-            context.C.setZero();
-            context.C.col(2).setOnes();
-            viewer.data().set_colors(context.C);
+            Eigen::MatrixXd temp = Eigen::MatrixXd::Zero(context.V.rows(), 3);
+            temp.col(2).setOnes();
+            viewer.data().set_colors(temp);
         }
         ImGui::Separator();
         ImGui::Checkbox("Parallel benchmark?", &parallel_flag);

@@ -235,7 +235,7 @@ void MeshContext::reset_mesh() {
         E[1] += smooth_arap_e; 
 
         double local_e = (1.0 - lambda_adjusted) * arap_e + lambda_adjusted * smooth_arap_e;
-        C(c.point_idx,0) = std::clamp(local_e * energy_color_coeff, 0.0, 1.0);
+        C(c.point_idx,0) = std::clamp(10 * local_e * energy_color_coeff, 0.0, 1.0);
         C(c.point_idx,2) -= C(c.point_idx,0);
     }
     E[2] = (1.0 - lambda_adjusted) * E[0] + lambda_adjusted * E[1];
